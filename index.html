@@ -283,6 +283,15 @@
             background: #30363d;
             color: #8b949e;
         }
+        .badge-loading {
+            background: #1f6feb;
+            color: #fff;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
         .fetch-bar {
             display: flex;
             gap: 0.8rem;
@@ -332,7 +341,7 @@
         </div>
 
         <div class="info-banner">
-            Option chain for MSTR (MicroStrategy) showing call options with <strong>30–45 DTE</strong> and <strong>10–30 delta</strong>. Select an option below to see projected covered-call income.
+            MSTR call options load automatically from <strong>Yahoo Finance</strong> (delayed ~15 min). Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -363,7 +372,7 @@
         <div class="fetch-bar">
             <h2 style="margin-bottom:0;">Call Options — 30-45 DTE, Delta 10–30</h2>
             <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
-            <button class="btn btn-primary" id="fetchBtn" onclick="fetchLiveData()" style="margin-left:auto;" disabled>Fetch Live Data</button>
+            <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Refresh Live Data</button>
         </div>
         <div class="table-wrap">
             <table id="optionTable">
@@ -392,9 +401,10 @@
         </div>
 
         <p class="disclaimer">
-            This tool shows sample data by default. Log in with Robinhood to fetch live option prices via robin_stocks.
+            Live prices from Yahoo Finance (delayed ~15 min). Falls back to sample data if unavailable.
+            Robinhood login provides real-time data when Flask backend is running.
             This is not financial advice. Option premiums, stock prices, and market conditions change constantly.
-            Past option premiums do not guarantee future results. Covered calls cap your upside if the stock rises above the strike price.
+            Covered calls cap your upside if the stock rises above the strike price.
         </p>
     </div>
 
@@ -421,6 +431,7 @@
         let selectedIndex = null;
         let isLoggedIn = false;
         let isLiveData = false;
+        let dataSource = "sample"; // "sample", "yahoo", "robinhood"
 
         // ── DOM refs ──
         const sharesInput = document.getElementById("shares");
@@ -446,7 +457,10 @@
         }
 
         function updateBadge() {
-            if (isLiveData) {
+            if (dataSource === "yahoo") {
+                dataBadge.textContent = "LIVE — YAHOO FINANCE";
+                dataBadge.className = "data-source-badge badge-live";
+            } else if (dataSource === "robinhood") {
                 dataBadge.textContent = "LIVE — ROBINHOOD";
                 dataBadge.className = "data-source-badge badge-live";
             } else {
@@ -481,8 +495,7 @@
                     isLoggedIn = true;
                     loginForm.style.display = "none";
                     loggedInBar.style.display = "flex";
-                    fetchBtn.disabled = false;
-                    setStatus("", "");
+                    setStatus("Logged in! Click Refresh to load real-time data.", "success");
                 } else {
                     setStatus(data.error || "Login failed.", "error");
                     document.getElementById("loginBtn").disabled = false;
@@ -498,36 +511,175 @@
             isLoggedIn = false;
             loginForm.style.display = "flex";
             loggedInBar.style.display = "none";
-            fetchBtn.disabled = true;
             document.getElementById("loginBtn").disabled = false;
             setStatus("Logged out.", "success");
-
-            // Revert to sample data
-            currentOptions = [...sampleOptions];
-            isLiveData = false;
-            selectedIndex = null;
-            updateBadge();
-            renderTable();
-            updateProjections();
+            fetchFreeData(); // Reload from Yahoo Finance
         }
 
-        // ── Fetch Live Options ──
-        async function fetchLiveData() {
-            if (!isLoggedIn) return;
+        // ── Black-Scholes Delta (for Yahoo Finance data) ──
+        function erfApprox(x) {
+            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+            const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+            const sign = x < 0 ? -1 : 1;
+            x = Math.abs(x);
+            const t = 1.0 / (1.0 + p * x);
+            const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            return sign * y;
+        }
 
+        function bsCallDelta(S, K, T, r, sigma) {
+            if (T <= 0 || sigma <= 0 || S <= 0 || K <= 0) return 0;
+            const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+            return 0.5 * (1.0 + erfApprox(d1 / Math.sqrt(2.0)));
+        }
+
+        // ── Fetch via CORS proxy ──
+        async function proxyFetch(url) {
+            const proxies = [
+                u => "https://corsproxy.io/?" + encodeURIComponent(u),
+                u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+            ];
+            for (const mkProxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 10000);
+                    const res = await fetch(mkProxy(url), { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (res.ok) return await res.json();
+                } catch (e) { continue; }
+            }
+            return null;
+        }
+
+        // ── Yahoo Finance Free Fetch ──
+        async function fetchFreeData() {
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = "Loading...";
+            dataBadge.textContent = "LOADING...";
+            dataBadge.className = "data-source-badge badge-loading";
+
+            try {
+                const symbol = "MSTR";
+                const baseUrl = "https://query2.finance.yahoo.com/v7/finance/options/" + symbol;
+
+                // Step 1: Get stock price + expiration dates + first chain
+                const data = await proxyFetch(baseUrl);
+                if (!data || !data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
+                    throw new Error("Yahoo Finance unavailable");
+                }
+
+                const result = data.optionChain.result[0];
+                const stockPrice = result.quote && result.quote.regularMarketPrice;
+                if (!stockPrice) throw new Error("No stock price returned");
+
+                const expirationDates = result.expirationDates || [];
+                const nowSec = Date.now() / 1000;
+
+                // Filter to 20-60 DTE range
+                const validExps = expirationDates.filter(e => {
+                    const dte = (e - nowSec) / 86400;
+                    return dte >= 20 && dte <= 60;
+                }).slice(0, 3);
+
+                const allOptions = [];
+
+                // Process calls from initial response
+                if (result.options && result.options[0] && result.options[0].calls) {
+                    processCalls(result.options[0].calls, stockPrice, nowSec, allOptions);
+                }
+
+                // Fetch additional expirations (skip the one already loaded)
+                const firstExp = result.options && result.options[0] && result.options[0].expirationDate;
+                const remaining = validExps.filter(e => e !== firstExp);
+
+                for (const expTs of remaining) {
+                    await new Promise(r => setTimeout(r, 300));
+                    const chainData = await proxyFetch(baseUrl + "?date=" + expTs);
+                    if (chainData && chainData.optionChain && chainData.optionChain.result
+                        && chainData.optionChain.result[0] && chainData.optionChain.result[0].options
+                        && chainData.optionChain.result[0].options[0]) {
+                        processCalls(chainData.optionChain.result[0].options[0].calls || [], stockPrice, nowSec, allOptions);
+                    }
+                }
+
+                if (allOptions.length > 0) {
+                    allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || a.strike - b.strike);
+                    currentOptions = allOptions;
+                    isLiveData = true;
+                    dataSource = "yahoo";
+                    selectedIndex = null;
+                    stockPriceInput.value = stockPrice.toFixed(2);
+                    updateBadge();
+                    renderTable();
+                    updateProjections();
+                    setStatus("Loaded " + allOptions.length + " live options from Yahoo Finance.", "success");
+                } else {
+                    throw new Error("No options matched 10-30 delta range");
+                }
+            } catch (e) {
+                // Fall back to sample data
+                dataSource = "sample";
+                isLiveData = false;
+                updateBadge();
+                renderTable();
+                updateProjections();
+                setStatus("Live fetch failed (" + e.message + "). Showing sample data.", "error");
+            }
+
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = "Refresh Live Data";
+        }
+
+        function processCalls(calls, stockPrice, nowSec, optionsArr) {
+            for (const c of calls) {
+                const strike = c.strike;
+                if (!strike || strike <= stockPrice) continue; // OTM only
+
+                const expTs = c.expiration;
+                const dte = Math.round((expTs - nowSec) / 86400);
+                if (dte < 20 || dte > 60) continue;
+
+                const iv = c.impliedVolatility || 0;
+                if (iv <= 0) continue;
+
+                const T = dte / 365;
+                const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
+
+                if (delta >= 0.10 && delta <= 0.30) {
+                    const expDate = new Date(expTs * 1000);
+                    const y = expDate.getUTCFullYear();
+                    const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
+                    const d = String(expDate.getUTCDate()).padStart(2, "0");
+
+                    optionsArr.push({
+                        strike: strike,
+                        exp: y + "-" + m + "-" + d,
+                        dte: dte,
+                        delta: Math.round(delta * 100) / 100,
+                        bid: c.bid || 0,
+                        ask: c.ask || 0,
+                        oi: c.openInterest || 0,
+                        vol: c.volume || 0,
+                    });
+                }
+            }
+        }
+
+        // ── Robinhood Fetch (requires Flask backend) ──
+        async function fetchRobinhoodData() {
             fetchBtn.disabled = true;
             fetchBtn.textContent = "Fetching...";
 
             try {
-                const res = await fetch("/api/options/MSTR?min_dte=30&max_dte=45&min_delta=0.10&max_delta=0.30&type=call");
+                const res = await fetch("/api/options/MSTR?min_dte=20&max_dte=60&min_delta=0.10&max_delta=0.30&type=call");
                 const data = await res.json();
 
                 if (data.success && data.options.length > 0) {
                     currentOptions = data.options;
                     isLiveData = true;
+                    dataSource = "robinhood";
                     selectedIndex = null;
 
-                    // Update stock price if returned
                     if (data.stock_price) {
                         stockPriceInput.value = data.stock_price.toFixed(2);
                     }
@@ -535,16 +687,26 @@
                     updateBadge();
                     renderTable();
                     updateProjections();
-                    setStatus("Loaded " + data.options.length + " live options.", "success");
+                    setStatus("Loaded " + data.options.length + " real-time options from Robinhood.", "success");
                 } else {
-                    setStatus(data.error || "No options matched the filters. Try adjusting DTE/delta range.", "error");
+                    setStatus(data.error || "No options matched filters.", "error");
                 }
             } catch (e) {
-                setStatus("Failed to fetch options: " + e.message, "error");
+                setStatus("Backend not running. Using Yahoo Finance instead.", "error");
+                await fetchFreeData();
             }
 
             fetchBtn.disabled = false;
-            fetchBtn.textContent = "Fetch Live Data";
+            fetchBtn.textContent = "Refresh Live Data";
+        }
+
+        // ── Smart Refresh ──
+        async function refreshData() {
+            if (isLoggedIn) {
+                await fetchRobinhoodData();
+            } else {
+                await fetchFreeData();
+            }
         }
 
         // ── Table Rendering ──
@@ -667,8 +829,8 @@
         });
 
         // ── Initial render ──
-        updateBadge();
-        renderTable();
+        renderTable(); // Show sample data immediately
+        fetchFreeData(); // Then auto-load live data from Yahoo Finance
     </script>
 </body>
 </html>
