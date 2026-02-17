@@ -471,19 +471,45 @@
             return 0.5 * (1.0 + erfApprox(d1 / Math.sqrt(2.0)));
         }
 
-        // ── Fetch Yahoo Finance data via Flask backend (no CORS issues) ──
-        async function apiFetch(path) {
+        // ── Fetch helpers ──
+        // Try backend first, then CORS proxies as fallback
+        async function fetchJSON(url, timeoutMs) {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
+            const timer = setTimeout(() => controller.abort(), timeoutMs || 10000);
             try {
-                const res = await fetch(path, { signal: controller.signal });
-                clearTimeout(timeout);
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 return await res.json();
             } catch (e) {
-                clearTimeout(timeout);
+                clearTimeout(timer);
                 throw e;
             }
+        }
+
+        async function yahooFetch(symbol, dateParam) {
+            const yahooUrl = "https://query2.finance.yahoo.com/v7/finance/options/" + symbol
+                + (dateParam ? "?date=" + dateParam : "");
+
+            // Try 1: Flask backend proxy
+            try {
+                const backendPath = "/api/yahoo/options/" + symbol + (dateParam ? "?date=" + dateParam : "");
+                const data = await fetchJSON(backendPath, 8000);
+                if (!data.error) return data;
+            } catch (e) { /* backend unavailable, try CORS proxies */ }
+
+            // Try 2: CORS proxies (works from phone/browser even without Flask)
+            const proxies = [
+                u => "https://corsproxy.io/?" + encodeURIComponent(u),
+                u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+                u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
+            ];
+            for (const mkProxy of proxies) {
+                try {
+                    return await fetchJSON(mkProxy(yahooUrl), 10000);
+                } catch (e) { continue; }
+            }
+            return null;
         }
 
         // ── Main data fetch ──
@@ -500,10 +526,9 @@
             dataBadge.className = "data-source-badge badge-loading";
 
             try {
-                // Step 1: Get stock price + expiration dates + first chain via backend
-                const data = await apiFetch("/api/yahoo/options/" + symbol);
-                if (data.error) throw new Error(data.error);
-                if (!data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
+                // Step 1: Get stock price + expiration dates + first chain
+                const data = await yahooFetch(symbol);
+                if (!data || !data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
                     throw new Error("No data returned for " + symbol);
                 }
 
@@ -536,7 +561,7 @@
                 const remaining = validExps.filter(e => e !== firstExp);
 
                 for (const expTs of remaining) {
-                    const chainData = await apiFetch("/api/yahoo/options/" + symbol + "?date=" + expTs);
+                    const chainData = await yahooFetch(symbol, expTs);
                     if (chainData && chainData.optionChain && chainData.optionChain.result
                         && chainData.optionChain.result[0] && chainData.optionChain.result[0].options
                         && chainData.optionChain.result[0].options[0]) {
