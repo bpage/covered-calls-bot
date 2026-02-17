@@ -203,6 +203,93 @@
             text-align: center;
             line-height: 1.6;
         }
+        .login-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .login-row {
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .login-row .input-group { flex: 1; min-width: 140px; }
+        .login-row input[type="text"],
+        .login-row input[type="password"],
+        .login-row input[type="email"] {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 0.95rem;
+        }
+        .login-row input:focus { outline: none; border-color: #58a6ff; }
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary {
+            background: #238636;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-primary:disabled {
+            background: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+        .btn-secondary:hover { background: #30363d; }
+        .btn-danger {
+            background: #da3633;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #f85149; }
+        .status-msg {
+            font-size: 0.85rem;
+            margin-top: 0.6rem;
+        }
+        .status-msg.success { color: #3fb950; }
+        .status-msg.error { color: #f85149; }
+        .status-msg.loading { color: #58a6ff; }
+        .data-source-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .badge-live {
+            background: #238636;
+            color: #fff;
+        }
+        .badge-sample {
+            background: #30363d;
+            color: #8b949e;
+        }
+        .fetch-bar {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
         @media (max-width: 600px) {
             header { padding: 0.8rem 1rem; }
             .proj-grid { grid-template-columns: 1fr 1fr; }
@@ -216,8 +303,36 @@
     </header>
 
     <div class="container">
+        <!-- Robinhood Login -->
+        <div class="login-section" id="loginSection">
+            <h2>Robinhood Login</h2>
+            <p style="font-size:0.85rem; color:#8b949e; margin-bottom:0.8rem;">
+                Log in to fetch live MSTR option prices via <strong>robin_stocks</strong>. Requires the Flask backend (<code>python app.py</code>).
+            </p>
+            <div class="login-row" id="loginForm">
+                <div class="input-group">
+                    <label for="rhEmail">Email</label>
+                    <input type="email" id="rhEmail" placeholder="you@example.com">
+                </div>
+                <div class="input-group">
+                    <label for="rhPassword">Password</label>
+                    <input type="password" id="rhPassword" placeholder="Password">
+                </div>
+                <div class="input-group" style="flex:0.6; min-width:110px;">
+                    <label for="rhMFA">MFA Code</label>
+                    <input type="text" id="rhMFA" placeholder="Optional">
+                </div>
+                <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Log In</button>
+            </div>
+            <div class="login-row" id="loggedInBar" style="display:none;">
+                <span style="color:#3fb950; font-weight:600;">Logged in to Robinhood</span>
+                <button class="btn btn-danger" onclick="doLogout()" style="margin-left:auto;">Log Out</button>
+            </div>
+            <div class="status-msg" id="loginStatus"></div>
+        </div>
+
         <div class="info-banner">
-            Sample option chain for MSTR (MicroStrategy) showing call options with <strong>30–45 DTE</strong> and <strong>10–30 delta</strong>. Select an option below to see projected covered-call income.
+            Option chain for MSTR (MicroStrategy) showing call options with <strong>30–45 DTE</strong> and <strong>10–30 delta</strong>. Select an option below to see projected covered-call income.
         </div>
 
         <div class="input-section">
@@ -245,7 +360,11 @@
             </div>
         </div>
 
-        <h2>Call Options — 30-45 DTE, Delta 10–30</h2>
+        <div class="fetch-bar">
+            <h2 style="margin-bottom:0;">Call Options — 30-45 DTE, Delta 10–30</h2>
+            <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
+            <button class="btn btn-primary" id="fetchBtn" onclick="fetchLiveData()" style="margin-left:auto;" disabled>Fetch Live Data</button>
+        </div>
         <div class="table-wrap">
             <table id="optionTable">
                 <thead>
@@ -273,14 +392,14 @@
         </div>
 
         <p class="disclaimer">
-            This tool uses sample data for illustration purposes only. It is not financial advice.
-            Option premiums, stock prices, and market conditions change constantly.
+            This tool shows sample data by default. Log in with Robinhood to fetch live option prices via robin_stocks.
+            This is not financial advice. Option premiums, stock prices, and market conditions change constantly.
             Past option premiums do not guarantee future results. Covered calls cap your upside if the stock rises above the strike price.
         </p>
     </div>
 
     <script>
-        // Sample MSTR option chain data (30-45 DTE, delta 10-30)
+        // ── Sample fallback data ──
         const sampleOptions = [
             { strike: 410, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 16.80, ask: 17.60, oi: 3842, vol: 1250 },
             { strike: 420, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 14.20, ask: 14.90, oi: 5120, vol: 980 },
@@ -298,8 +417,13 @@
             { strike: 500, exp: "2026-03-27", dte: 38, delta: 0.10, bid: 4.20, ask: 4.70, oi: 1560, vol: 260 },
         ];
 
+        // ── State ──
+        let currentOptions = [...sampleOptions];
         let selectedIndex = null;
+        let isLoggedIn = false;
+        let isLiveData = false;
 
+        // ── DOM refs ──
         const sharesInput = document.getElementById("shares");
         const stockPriceInput = document.getElementById("stockPrice");
         const cycleLengthSelect = document.getElementById("cycleLength");
@@ -307,14 +431,127 @@
         const projectionsDiv = document.getElementById("projections");
         const summaryRow = document.getElementById("summaryRow");
         const projGrid = document.getElementById("projGrid");
+        const loginStatus = document.getElementById("loginStatus");
+        const loginForm = document.getElementById("loginForm");
+        const loggedInBar = document.getElementById("loggedInBar");
+        const fetchBtn = document.getElementById("fetchBtn");
+        const dataBadge = document.getElementById("dataBadge");
 
         function formatCurrency(n) {
             return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function setStatus(msg, type) {
+            loginStatus.textContent = msg;
+            loginStatus.className = "status-msg " + type;
+        }
+
+        function updateBadge() {
+            if (isLiveData) {
+                dataBadge.textContent = "LIVE — ROBINHOOD";
+                dataBadge.className = "data-source-badge badge-live";
+            } else {
+                dataBadge.textContent = "SAMPLE DATA";
+                dataBadge.className = "data-source-badge badge-sample";
+            }
+        }
+
+        // ── Robinhood Login ──
+        async function doLogin() {
+            const email = document.getElementById("rhEmail").value.trim();
+            const password = document.getElementById("rhPassword").value;
+            const mfa = document.getElementById("rhMFA").value.trim();
+
+            if (!email || !password) {
+                setStatus("Email and password are required.", "error");
+                return;
+            }
+
+            setStatus("Logging in...", "loading");
+            document.getElementById("loginBtn").disabled = true;
+
+            try {
+                const res = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password, mfa_code: mfa || null }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    isLoggedIn = true;
+                    loginForm.style.display = "none";
+                    loggedInBar.style.display = "flex";
+                    fetchBtn.disabled = false;
+                    setStatus("", "");
+                } else {
+                    setStatus(data.error || "Login failed.", "error");
+                    document.getElementById("loginBtn").disabled = false;
+                }
+            } catch (e) {
+                setStatus("Cannot reach backend. Is the Flask server running? (python app.py)", "error");
+                document.getElementById("loginBtn").disabled = false;
+            }
+        }
+
+        async function doLogout() {
+            try { await fetch("/api/logout", { method: "POST" }); } catch {}
+            isLoggedIn = false;
+            loginForm.style.display = "flex";
+            loggedInBar.style.display = "none";
+            fetchBtn.disabled = true;
+            document.getElementById("loginBtn").disabled = false;
+            setStatus("Logged out.", "success");
+
+            // Revert to sample data
+            currentOptions = [...sampleOptions];
+            isLiveData = false;
+            selectedIndex = null;
+            updateBadge();
+            renderTable();
+            updateProjections();
+        }
+
+        // ── Fetch Live Options ──
+        async function fetchLiveData() {
+            if (!isLoggedIn) return;
+
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = "Fetching...";
+
+            try {
+                const res = await fetch("/api/options/MSTR?min_dte=30&max_dte=45&min_delta=0.10&max_delta=0.30&type=call");
+                const data = await res.json();
+
+                if (data.success && data.options.length > 0) {
+                    currentOptions = data.options;
+                    isLiveData = true;
+                    selectedIndex = null;
+
+                    // Update stock price if returned
+                    if (data.stock_price) {
+                        stockPriceInput.value = data.stock_price.toFixed(2);
+                    }
+
+                    updateBadge();
+                    renderTable();
+                    updateProjections();
+                    setStatus("Loaded " + data.options.length + " live options.", "success");
+                } else {
+                    setStatus(data.error || "No options matched the filters. Try adjusting DTE/delta range.", "error");
+                }
+            } catch (e) {
+                setStatus("Failed to fetch options: " + e.message, "error");
+            }
+
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = "Fetch Live Data";
+        }
+
+        // ── Table Rendering ──
         function renderTable() {
             optionBody.innerHTML = "";
-            sampleOptions.forEach((opt, i) => {
+            currentOptions.forEach((opt, i) => {
                 const mid = (opt.bid + opt.ask) / 2;
                 const row = document.createElement("tr");
                 if (i === selectedIndex) row.classList.add("selected");
@@ -341,6 +578,7 @@
             updateProjections();
         }
 
+        // ── Income Projections ──
         function updateProjections() {
             if (selectedIndex === null) {
                 projectionsDiv.classList.add("hidden");
@@ -350,7 +588,7 @@
             const shares = parseInt(sharesInput.value) || 0;
             const stockPrice = parseFloat(stockPriceInput.value) || 0;
             const cycleDays = parseInt(cycleLengthSelect.value);
-            const opt = sampleOptions[selectedIndex];
+            const opt = currentOptions[selectedIndex];
             const mid = (opt.bid + opt.ask) / 2;
             const contracts = Math.floor(shares / 100);
 
@@ -362,7 +600,6 @@
             const premiumPerCycle = mid * 100 * contracts;
             const positionValue = stockPrice * shares;
 
-            // Periods to project
             const periods = [
                 { label: "1 Month", days: 30 },
                 { label: "2 Months", days: 60 },
@@ -372,7 +609,6 @@
                 { label: "1 Year", days: 365 },
             ];
 
-            // Summary
             summaryRow.innerHTML = `
                 <div class="summary-item">
                     <div class="label">Contracts</div>
@@ -400,7 +636,6 @@
                 </div>
             `;
 
-            // Projection cards
             projGrid.innerHTML = "";
             periods.forEach(p => {
                 const cycles = p.days / cycleDays;
@@ -422,12 +657,18 @@
             projectionsDiv.classList.remove("hidden");
         }
 
-        // Event listeners
+        // ── Event listeners ──
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
 
-        // Initial render
+        // Allow Enter key to submit login
+        document.querySelectorAll("#loginForm input").forEach(input => {
+            input.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+        });
+
+        // ── Initial render ──
+        updateBadge();
         renderTable();
     </script>
 </body>
