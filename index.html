@@ -3,34 +3,432 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My First Project</title>
+    <title>Strategy Covered Calls — MSTR</title>
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-            color: #1c1e21;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header h1 {
+            font-size: 1.4rem;
+            color: #58a6ff;
+        }
+        header h1 span { color: #8b949e; font-weight: 400; }
+        .stock-badge {
+            background: #1f6feb;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+        .info-banner {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+        .input-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #c9d1d9;
+        }
+        .input-section .hint {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-bottom: 0.6rem;
+        }
+        .input-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .input-group { flex: 1; min-width: 180px; }
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 1rem;
+        }
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: #c9d1d9;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        thead th {
+            background: #1c2128;
+            padding: 0.65rem 0.8rem;
+            text-align: left;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            border-bottom: 1px solid #30363d;
+        }
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: #1c2128; }
+        tbody tr.selected { background: #1a3a5c; }
+        tbody td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #21262d;
+            white-space: nowrap;
+        }
+        .delta-cell { color: #58a6ff; font-weight: 600; }
+        .premium-cell { color: #3fb950; font-weight: 600; }
+        .strike-cell { font-weight: 600; }
+        .projections {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .projections.hidden { display: none; }
+        .proj-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 0.8rem;
+        }
+        .proj-card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem;
             text-align: center;
         }
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            shadow: 0 4px 12px rgba(0,0,0,0.1);
+        .proj-card .period {
+            font-size: 0.8rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
         }
-        h1 { color: #007AFF; }
+        .proj-card .amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3fb950;
+        }
+        .proj-card .detail {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-top: 0.3rem;
+        }
+        .proj-card .yield {
+            margin-top: 0.3rem;
+            font-size: 0.85rem;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+        .summary-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #21262d;
+        }
+        .summary-item {
+            flex: 1;
+            min-width: 140px;
+        }
+        .summary-item .label {
+            font-size: 0.75rem;
+            color: #8b949e;
+            text-transform: uppercase;
+        }
+        .summary-item .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+        .disclaimer {
+            font-size: 0.75rem;
+            color: #484f58;
+            margin-top: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+        @media (max-width: 600px) {
+            header { padding: 0.8rem 1rem; }
+            .proj-grid { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Hello World!</h1>
-        <p>This is my first project on GitHub.</p>
-        <p>Ready for voice editing with Claude.</p>
+    <header>
+        <h1>Strategy Covered Calls <span>— Income Estimator</span></h1>
+        <div class="stock-badge">MSTR</div>
+    </header>
+
+    <div class="container">
+        <div class="info-banner">
+            Sample option chain for MSTR (MicroStrategy) showing call options with <strong>30–45 DTE</strong> and <strong>10–30 delta</strong>. Select an option below to see projected covered-call income.
+        </div>
+
+        <div class="input-section">
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="shares">Shares Owned</label>
+                    <div class="hint">Each contract covers 100 shares</div>
+                    <input type="number" id="shares" min="100" step="100" value="100" placeholder="e.g. 500">
+                </div>
+                <div class="input-group">
+                    <label for="stockPrice">MSTR Stock Price ($)</label>
+                    <div class="hint">Current market price</div>
+                    <input type="number" id="stockPrice" min="1" step="0.01" value="326.50">
+                </div>
+                <div class="input-group">
+                    <label for="cycleLength">Option Cycle (days)</label>
+                    <div class="hint">How often you'd sell a new call</div>
+                    <select id="cycleLength">
+                        <option value="30">30 days</option>
+                        <option value="35" selected>35 days</option>
+                        <option value="40">40 days</option>
+                        <option value="45">45 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <h2>Call Options — 30-45 DTE, Delta 10–30</h2>
+        <div class="table-wrap">
+            <table id="optionTable">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Strike</th>
+                        <th>Exp Date</th>
+                        <th>DTE</th>
+                        <th>Delta</th>
+                        <th>Bid</th>
+                        <th>Ask</th>
+                        <th>Mid</th>
+                        <th>Open Int</th>
+                        <th>Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="optionBody"></tbody>
+            </table>
+        </div>
+
+        <div class="projections hidden" id="projections">
+            <h2>Income Projections</h2>
+            <div class="summary-row" id="summaryRow"></div>
+            <div class="proj-grid" id="projGrid"></div>
+        </div>
+
+        <p class="disclaimer">
+            This tool uses sample data for illustration purposes only. It is not financial advice.
+            Option premiums, stock prices, and market conditions change constantly.
+            Past option premiums do not guarantee future results. Covered calls cap your upside if the stock rises above the strike price.
+        </p>
     </div>
+
+    <script>
+        // Sample MSTR option chain data (30-45 DTE, delta 10-30)
+        const sampleOptions = [
+            { strike: 410, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 16.80, ask: 17.60, oi: 3842, vol: 1250 },
+            { strike: 420, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 14.20, ask: 14.90, oi: 5120, vol: 980 },
+            { strike: 430, exp: "2026-03-20", dte: 31, delta: 0.22, bid: 11.90, ask: 12.55, oi: 4215, vol: 870 },
+            { strike: 440, exp: "2026-03-20", dte: 31, delta: 0.19, bid: 9.80, ask: 10.40, oi: 3680, vol: 760 },
+            { strike: 450, exp: "2026-03-20", dte: 31, delta: 0.16, bid: 8.00, ask: 8.55, oi: 6530, vol: 1420 },
+            { strike: 460, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 6.50, ask: 7.00, oi: 2940, vol: 630 },
+            { strike: 470, exp: "2026-03-20", dte: 31, delta: 0.12, bid: 5.20, ask: 5.70, oi: 2180, vol: 440 },
+            { strike: 480, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 4.10, ask: 4.55, oi: 1850, vol: 310 },
+            { strike: 400, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 20.50, ask: 21.30, oi: 2750, vol: 890 },
+            { strike: 420, exp: "2026-03-27", dte: 38, delta: 0.26, bid: 16.10, ask: 16.80, oi: 3910, vol: 720 },
+            { strike: 440, exp: "2026-03-27", dte: 38, delta: 0.21, bid: 12.00, ask: 12.65, oi: 3340, vol: 650 },
+            { strike: 460, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 8.50, ask: 9.10, oi: 2680, vol: 510 },
+            { strike: 480, exp: "2026-03-27", dte: 38, delta: 0.12, bid: 5.80, ask: 6.35, oi: 1920, vol: 380 },
+            { strike: 500, exp: "2026-03-27", dte: 38, delta: 0.10, bid: 4.20, ask: 4.70, oi: 1560, vol: 260 },
+        ];
+
+        let selectedIndex = null;
+
+        const sharesInput = document.getElementById("shares");
+        const stockPriceInput = document.getElementById("stockPrice");
+        const cycleLengthSelect = document.getElementById("cycleLength");
+        const optionBody = document.getElementById("optionBody");
+        const projectionsDiv = document.getElementById("projections");
+        const summaryRow = document.getElementById("summaryRow");
+        const projGrid = document.getElementById("projGrid");
+
+        function formatCurrency(n) {
+            return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function renderTable() {
+            optionBody.innerHTML = "";
+            sampleOptions.forEach((opt, i) => {
+                const mid = (opt.bid + opt.ask) / 2;
+                const row = document.createElement("tr");
+                if (i === selectedIndex) row.classList.add("selected");
+                row.innerHTML = `
+                    <td><input type="radio" name="optSel" ${i === selectedIndex ? "checked" : ""}></td>
+                    <td class="strike-cell">${formatCurrency(opt.strike)}</td>
+                    <td>${opt.exp}</td>
+                    <td>${opt.dte}d</td>
+                    <td class="delta-cell">${opt.delta.toFixed(2)}</td>
+                    <td>${formatCurrency(opt.bid)}</td>
+                    <td>${formatCurrency(opt.ask)}</td>
+                    <td class="premium-cell">${formatCurrency(mid)}</td>
+                    <td>${opt.oi.toLocaleString()}</td>
+                    <td>${opt.vol.toLocaleString()}</td>
+                `;
+                row.addEventListener("click", () => selectOption(i));
+                optionBody.appendChild(row);
+            });
+        }
+
+        function selectOption(i) {
+            selectedIndex = i;
+            renderTable();
+            updateProjections();
+        }
+
+        function updateProjections() {
+            if (selectedIndex === null) {
+                projectionsDiv.classList.add("hidden");
+                return;
+            }
+
+            const shares = parseInt(sharesInput.value) || 0;
+            const stockPrice = parseFloat(stockPriceInput.value) || 0;
+            const cycleDays = parseInt(cycleLengthSelect.value);
+            const opt = sampleOptions[selectedIndex];
+            const mid = (opt.bid + opt.ask) / 2;
+            const contracts = Math.floor(shares / 100);
+
+            if (contracts < 1 || stockPrice <= 0) {
+                projectionsDiv.classList.add("hidden");
+                return;
+            }
+
+            const premiumPerCycle = mid * 100 * contracts;
+            const positionValue = stockPrice * shares;
+
+            // Periods to project
+            const periods = [
+                { label: "1 Month", days: 30 },
+                { label: "2 Months", days: 60 },
+                { label: "3 Months", days: 90 },
+                { label: "6 Months", days: 180 },
+                { label: "9 Months", days: 270 },
+                { label: "1 Year", days: 365 },
+            ];
+
+            // Summary
+            summaryRow.innerHTML = `
+                <div class="summary-item">
+                    <div class="label">Contracts</div>
+                    <div class="value">${contracts}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Strike</div>
+                    <div class="value">${formatCurrency(opt.strike)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Delta</div>
+                    <div class="value">${opt.delta.toFixed(2)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Mid Premium</div>
+                    <div class="value">${formatCurrency(mid)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Premium / Cycle</div>
+                    <div class="value">${formatCurrency(premiumPerCycle)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Position Value</div>
+                    <div class="value">${formatCurrency(positionValue)}</div>
+                </div>
+            `;
+
+            // Projection cards
+            projGrid.innerHTML = "";
+            periods.forEach(p => {
+                const cycles = p.days / cycleDays;
+                const totalIncome = premiumPerCycle * cycles;
+                const annualizedYield = (totalIncome / positionValue) * (365 / p.days) * 100;
+                const yieldForPeriod = (totalIncome / positionValue) * 100;
+
+                const card = document.createElement("div");
+                card.className = "proj-card";
+                card.innerHTML = `
+                    <div class="period">${p.label}</div>
+                    <div class="amount">${formatCurrency(totalIncome)}</div>
+                    <div class="detail">${cycles.toFixed(1)} cycles</div>
+                    <div class="yield">${yieldForPeriod.toFixed(1)}% return · ${annualizedYield.toFixed(1)}% ann.</div>
+                `;
+                projGrid.appendChild(card);
+            });
+
+            projectionsDiv.classList.remove("hidden");
+        }
+
+        // Event listeners
+        sharesInput.addEventListener("input", updateProjections);
+        stockPriceInput.addEventListener("input", updateProjections);
+        cycleLengthSelect.addEventListener("change", updateProjections);
+
+        // Initial render
+        renderTable();
+    </script>
 </body>
 </html>
