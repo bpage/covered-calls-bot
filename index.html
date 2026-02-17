@@ -472,10 +472,9 @@
         }
 
         // ── Fetch helpers ──
-        // Try backend first, then CORS proxies as fallback
         async function fetchJSON(url, timeoutMs) {
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs || 10000);
+            const timer = setTimeout(() => controller.abort(), timeoutMs || 12000);
             try {
                 const res = await fetch(url, { signal: controller.signal });
                 clearTimeout(timer);
@@ -488,27 +487,48 @@
         }
 
         async function yahooFetch(symbol, dateParam) {
-            const yahooUrl = "https://query2.finance.yahoo.com/v7/finance/options/" + symbol
-                + (dateParam ? "?date=" + dateParam : "");
-
-            // Try 1: Flask backend proxy
-            try {
-                const backendPath = "/api/yahoo/options/" + symbol + (dateParam ? "?date=" + dateParam : "");
-                const data = await fetchJSON(backendPath, 8000);
-                if (!data.error) return data;
-            } catch (e) { /* backend unavailable, try CORS proxies */ }
-
-            // Try 2: CORS proxies (works from phone/browser even without Flask)
-            const proxies = [
-                u => "https://corsproxy.io/?" + encodeURIComponent(u),
-                u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-                u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
+            // Try both Yahoo Finance API versions
+            const urls = [
+                "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + (dateParam ? "?date=" + dateParam : ""),
+                "https://query2.finance.yahoo.com/v7/finance/options/" + symbol + (dateParam ? "?date=" + dateParam : ""),
             ];
-            for (const mkProxy of proxies) {
+
+            // Try 1: Flask backend proxy (works when running python app.py)
+            for (const yahooUrl of urls) {
                 try {
-                    return await fetchJSON(mkProxy(yahooUrl), 10000);
+                    const backendPath = "/api/yahoo/options/" + symbol + (dateParam ? "?date=" + dateParam : "");
+                    const data = await fetchJSON(backendPath, 8000);
+                    if (data && !data.error && data.optionChain) return data;
+                } catch (e) { /* backend unavailable */ }
+            }
+
+            // Try 2: CORS proxies (works from any browser)
+            const proxies = [
+                { name: "corsproxy.io", fn: u => "https://corsproxy.io/?" + encodeURIComponent(u) },
+                { name: "allorigins", fn: u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
+                { name: "codetabs", fn: u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) },
+                { name: "cors.sh", fn: u => "https://proxy.cors.sh/" + u },
+            ];
+
+            for (const yahooUrl of urls) {
+                for (const proxy of proxies) {
+                    try {
+                        setStatus("Trying " + proxy.name + "...", "loading");
+                        const data = await fetchJSON(proxy.fn(yahooUrl), 12000);
+                        if (data && data.optionChain) return data;
+                    } catch (e) { continue; }
+                }
+            }
+
+            // Try 3: Direct fetch (may work on some mobile browsers)
+            for (const yahooUrl of urls) {
+                try {
+                    setStatus("Trying direct fetch...", "loading");
+                    const data = await fetchJSON(yahooUrl, 8000);
+                    if (data && data.optionChain) return data;
                 } catch (e) { continue; }
             }
+
             return null;
         }
 
@@ -588,7 +608,7 @@
                 updateBadge();
                 renderTable();
                 updateProjections();
-                setStatus("Fetch failed: " + e.message + ". Showing sample data.", "error");
+                setStatus("Fetch failed: " + e.message + ". Showing MSTR sample data. Try running Flask: python app.py", "error");
             }
 
             fetchBtn.disabled = false;
