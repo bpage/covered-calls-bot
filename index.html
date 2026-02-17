@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strategy Covered Calls — MSTR</title>
+    <title>Covered Call Income Estimator</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -74,7 +74,7 @@
             flex-wrap: wrap;
         }
         .input-group { flex: 1; min-width: 180px; }
-        input[type="number"], select {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             padding: 0.6rem 0.8rem;
             background: #0d1117;
@@ -83,7 +83,7 @@
             color: #e6edf3;
             font-size: 1rem;
         }
-        input[type="number"]:focus, select:focus {
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
             outline: none;
             border-color: #58a6ff;
         }
@@ -270,27 +270,32 @@
 </head>
 <body>
     <header>
-        <h1>Strategy Covered Calls <span>— Income Estimator</span></h1>
-        <div class="stock-badge">MSTR</div>
+        <h1>Covered Call <span>Income Estimator</span></h1>
+        <div class="stock-badge" id="headerBadge">MSTR</div>
     </header>
 
     <div class="container">
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            MSTR call options load automatically from <strong>Yahoo Finance</strong> (delayed ~15 min). Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
+            Enter a stock ticker and click <strong>Fetch Options</strong> to load call options from <strong>Yahoo Finance</strong> (delayed ~15 min). Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
         </div>
 
         <div class="input-section">
             <div class="input-row">
+                <div class="input-group" style="flex:0.6; min-width:120px;">
+                    <label for="ticker">Ticker</label>
+                    <div class="hint">Stock symbol</div>
+                    <input type="text" id="ticker" value="MSTR" placeholder="e.g. AAPL" style="text-transform:uppercase;">
+                </div>
                 <div class="input-group">
                     <label for="shares">Shares Owned</label>
                     <div class="hint">Each contract covers 100 shares</div>
                     <input type="number" id="shares" min="100" step="100" value="100" placeholder="e.g. 500">
                 </div>
                 <div class="input-group">
-                    <label for="stockPrice">MSTR Stock Price ($)</label>
-                    <div class="hint">Current market price</div>
+                    <label for="stockPrice">Stock Price ($)</label>
+                    <div class="hint">Auto-filled on fetch</div>
                     <input type="number" id="stockPrice" min="1" step="0.01" value="133.88">
                 </div>
                 <div class="input-group">
@@ -307,9 +312,9 @@
         </div>
 
         <div class="fetch-bar">
-            <h2 style="margin-bottom:0;">Call Options — 30-45 DTE, Delta 10–30</h2>
+            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 20-60 DTE, Delta 10–30</h2>
             <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
-            <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Refresh Live Data</button>
+            <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Fetch Options</button>
         </div>
         <div class="table-wrap">
             <table id="optionTable">
@@ -338,8 +343,8 @@
         </div>
 
         <p class="disclaimer">
-            Live prices from Yahoo Finance (delayed ~15 min). Falls back to sample data if unavailable.
-            This is not financial advice. Option premiums, stock prices, and market conditions change constantly.
+            Option prices from Yahoo Finance (delayed ~15 min). Falls back to sample data if unavailable.
+            This is not financial advice. Premiums, stock prices, and market conditions change constantly.
             Covered calls cap your upside if the stock rises above the strike price.
         </p>
     </div>
@@ -366,8 +371,10 @@
         let currentOptions = [...sampleOptions];
         let selectedIndex = null;
         let isLiveData = false;
+        let currentTicker = "MSTR";
 
         // ── DOM refs ──
+        const tickerInput = document.getElementById("ticker");
         const sharesInput = document.getElementById("shares");
         const stockPriceInput = document.getElementById("stockPrice");
         const cycleLengthSelect = document.getElementById("cycleLength");
@@ -378,6 +385,8 @@
         const loginStatus = document.getElementById("loginStatus");
         const fetchBtn = document.getElementById("fetchBtn");
         const dataBadge = document.getElementById("dataBadge");
+        const headerBadge = document.getElementById("headerBadge");
+        const tableHeading = document.getElementById("tableHeading");
 
         function formatCurrency(n) {
             return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -435,13 +444,18 @@
 
         // ── Yahoo Finance Free Fetch ──
         async function fetchFreeData() {
+            const symbol = tickerInput.value.trim().toUpperCase();
+            if (!symbol) {
+                setStatus("Enter a ticker symbol.", "error");
+                return;
+            }
+
             fetchBtn.disabled = true;
             fetchBtn.textContent = "Loading...";
             dataBadge.textContent = "LOADING...";
             dataBadge.className = "data-source-badge badge-loading";
 
             try {
-                const symbol = "MSTR";
                 const baseUrl = "https://query2.finance.yahoo.com/v7/finance/options/" + symbol;
 
                 // Step 1: Get stock price + expiration dates + first chain
@@ -487,13 +501,15 @@
                 if (allOptions.length > 0) {
                     allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || a.strike - b.strike);
                     currentOptions = allOptions;
+                    currentTicker = symbol;
                     isLiveData = true;
                     selectedIndex = null;
                     stockPriceInput.value = stockPrice.toFixed(2);
+                    headerBadge.textContent = symbol;
                     updateBadge();
                     renderTable();
                     updateProjections();
-                    setStatus("Loaded " + allOptions.length + " live options from Yahoo Finance.", "success");
+                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
                 } else {
                     throw new Error("No options matched 10-30 delta range");
                 }
@@ -507,7 +523,7 @@
             }
 
             fetchBtn.disabled = false;
-            fetchBtn.textContent = "Refresh Live Data";
+            fetchBtn.textContent = "Fetch Options";
         }
 
         function processCalls(calls, stockPrice, nowSec, optionsArr) {
@@ -663,10 +679,11 @@
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
+        tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") refreshData(); });
 
         // ── Initial render ──
-        renderTable(); // Show sample data immediately
-        fetchFreeData(); // Then auto-load live data from Yahoo Finance
+        renderTable();
+        fetchFreeData();
     </script>
 </body>
 </html>
