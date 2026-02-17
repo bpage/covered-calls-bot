@@ -397,25 +397,151 @@
     </div>
 
     <script>
-        // ── Sample fallback data ──
-        const sampleOptions = [
-            { strike: 145, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 7.20, ask: 7.80, oi: 4120, vol: 1340 },
-            { strike: 150, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 5.60, ask: 6.10, oi: 5480, vol: 1050 },
-            { strike: 155, exp: "2026-03-20", dte: 31, delta: 0.21, bid: 4.20, ask: 4.65, oi: 3890, vol: 870 },
-            { strike: 160, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 3.10, ask: 3.50, oi: 3250, vol: 720 },
-            { strike: 165, exp: "2026-03-20", dte: 31, delta: 0.15, bid: 2.30, ask: 2.65, oi: 5810, vol: 1280 },
-            { strike: 170, exp: "2026-03-20", dte: 31, delta: 0.12, bid: 1.70, ask: 2.00, oi: 2640, vol: 540 },
-            { strike: 175, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.20, ask: 1.50, oi: 1980, vol: 380 },
-            { strike: 145, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 8.30, ask: 8.90, oi: 3150, vol: 960 },
-            { strike: 150, exp: "2026-03-27", dte: 38, delta: 0.27, bid: 6.60, ask: 7.10, oi: 4280, vol: 810 },
-            { strike: 155, exp: "2026-03-27", dte: 38, delta: 0.23, bid: 5.10, ask: 5.55, oi: 3560, vol: 690 },
-            { strike: 160, exp: "2026-03-27", dte: 38, delta: 0.19, bid: 3.80, ask: 4.20, oi: 2920, vol: 570 },
-            { strike: 170, exp: "2026-03-27", dte: 38, delta: 0.13, bid: 2.10, ask: 2.45, oi: 2140, vol: 410 },
-            { strike: 180, exp: "2026-03-27", dte: 38, delta: 0.10, bid: 1.30, ask: 1.60, oi: 1680, vol: 290 },
-        ];
+        // ── Sample fallback data per ticker ──
+        // Realistic sample options for popular tickers (10-30 delta, 20-60 DTE)
+        const sampleDataByTicker = {
+            MSTR: {
+                price: 338.50,
+                options: [
+                    { strike: 370, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 18.40, ask: 19.60, oi: 3820, vol: 1240 },
+                    { strike: 380, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 14.80, ask: 15.90, oi: 4650, vol: 980 },
+                    { strike: 390, exp: "2026-03-20", dte: 31, delta: 0.21, bid: 11.50, ask: 12.50, oi: 3410, vol: 810 },
+                    { strike: 400, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 8.80, ask: 9.70, oi: 5280, vol: 1520 },
+                    { strike: 420, exp: "2026-03-20", dte: 31, delta: 0.13, bid: 5.40, ask: 6.10, oi: 2940, vol: 640 },
+                    { strike: 440, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 3.30, ask: 3.90, oi: 2180, vol: 420 },
+                    { strike: 370, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 21.60, ask: 22.90, oi: 2950, vol: 870 },
+                    { strike: 380, exp: "2026-03-27", dte: 38, delta: 0.27, bid: 17.90, ask: 19.10, oi: 3780, vol: 750 },
+                    { strike: 400, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 11.40, ask: 12.30, oi: 4120, vol: 1080 },
+                    { strike: 420, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 7.10, ask: 7.80, oi: 2560, vol: 490 },
+                    { strike: 440, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 4.30, ask: 4.90, oi: 1840, vol: 310 },
+                ],
+            },
+            TSLA: {
+                price: 352.40,
+                options: [
+                    { strike: 380, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 14.80, ask: 15.60, oi: 12450, vol: 4820 },
+                    { strike: 390, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 11.40, ask: 12.10, oi: 9870, vol: 3650 },
+                    { strike: 400, exp: "2026-03-20", dte: 31, delta: 0.20, bid: 8.60, ask: 9.20, oi: 15320, vol: 5240 },
+                    { strike: 410, exp: "2026-03-20", dte: 31, delta: 0.17, bid: 6.30, ask: 6.80, oi: 8940, vol: 2870 },
+                    { strike: 420, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 4.50, ask: 5.00, oi: 11280, vol: 3190 },
+                    { strike: 440, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 2.30, ask: 2.70, oi: 7650, vol: 1840 },
+                    { strike: 380, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 17.20, ask: 18.00, oi: 8930, vol: 3410 },
+                    { strike: 400, exp: "2026-03-27", dte: 38, delta: 0.22, bid: 10.80, ask: 11.50, oi: 11540, vol: 4120 },
+                    { strike: 410, exp: "2026-03-27", dte: 38, delta: 0.19, bid: 8.10, ask: 8.70, oi: 6820, vol: 2150 },
+                    { strike: 420, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 5.90, ask: 6.40, oi: 9370, vol: 2680 },
+                    { strike: 440, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 3.10, ask: 3.60, oi: 5140, vol: 1320 },
+                ],
+            },
+            AAPL: {
+                price: 232.80,
+                options: [
+                    { strike: 240, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 4.10, ask: 4.40, oi: 18920, vol: 6740 },
+                    { strike: 245, exp: "2026-03-20", dte: 31, delta: 0.22, bid: 2.85, ask: 3.10, oi: 14350, vol: 4890 },
+                    { strike: 250, exp: "2026-03-20", dte: 31, delta: 0.17, bid: 1.90, ask: 2.10, oi: 22480, vol: 7120 },
+                    { strike: 255, exp: "2026-03-20", dte: 31, delta: 0.13, bid: 1.20, ask: 1.40, oi: 11670, vol: 3210 },
+                    { strike: 260, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 0.75, ask: 0.90, oi: 15890, vol: 4560 },
+                    { strike: 240, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 5.20, ask: 5.50, oi: 13450, vol: 4870 },
+                    { strike: 245, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 3.80, ask: 4.05, oi: 10280, vol: 3540 },
+                    { strike: 250, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 2.65, ask: 2.85, oi: 17640, vol: 5630 },
+                    { strike: 255, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 1.80, ask: 2.00, oi: 8940, vol: 2470 },
+                    { strike: 260, exp: "2026-03-27", dte: 38, delta: 0.12, bid: 1.15, ask: 1.35, oi: 12310, vol: 3180 },
+                ],
+            },
+            SPY: {
+                price: 605.20,
+                options: [
+                    { strike: 620, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 7.80, ask: 8.20, oi: 42150, vol: 18640 },
+                    { strike: 625, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 6.10, ask: 6.40, oi: 35480, vol: 14320 },
+                    { strike: 630, exp: "2026-03-20", dte: 31, delta: 0.20, bid: 4.60, ask: 4.90, oi: 51230, vol: 21560 },
+                    { strike: 640, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 2.50, ask: 2.75, oi: 28940, vol: 10870 },
+                    { strike: 650, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.30, ask: 1.50, oi: 19650, vol: 7240 },
+                    { strike: 620, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 9.40, ask: 9.80, oi: 31820, vol: 13450 },
+                    { strike: 630, exp: "2026-03-27", dte: 38, delta: 0.22, bid: 6.10, ask: 6.45, oi: 38670, vol: 15890 },
+                    { strike: 640, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 3.70, ask: 4.00, oi: 22540, vol: 8760 },
+                    { strike: 650, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 2.10, ask: 2.35, oi: 15380, vol: 5430 },
+                ],
+            },
+            NVDA: {
+                price: 138.50,
+                options: [
+                    { strike: 145, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 5.40, ask: 5.70, oi: 28450, vol: 11240 },
+                    { strike: 150, exp: "2026-03-20", dte: 31, delta: 0.23, bid: 3.80, ask: 4.10, oi: 35670, vol: 14520 },
+                    { strike: 155, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 2.60, ask: 2.85, oi: 22340, vol: 8760 },
+                    { strike: 160, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 1.70, ask: 1.90, oi: 18920, vol: 6340 },
+                    { strike: 165, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.05, ask: 1.25, oi: 14580, vol: 4870 },
+                    { strike: 145, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 6.60, ask: 6.95, oi: 21340, vol: 8640 },
+                    { strike: 150, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 4.80, ask: 5.10, oi: 27890, vol: 10950 },
+                    { strike: 155, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 3.40, ask: 3.65, oi: 18560, vol: 7120 },
+                    { strike: 160, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 2.30, ask: 2.55, oi: 14230, vol: 5280 },
+                    { strike: 165, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 1.50, ask: 1.75, oi: 10870, vol: 3640 },
+                ],
+            },
+            AMZN: {
+                price: 228.60,
+                options: [
+                    { strike: 235, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 5.20, ask: 5.50, oi: 15640, vol: 5870 },
+                    { strike: 240, exp: "2026-03-20", dte: 31, delta: 0.23, bid: 3.70, ask: 3.95, oi: 12380, vol: 4230 },
+                    { strike: 245, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 2.50, ask: 2.75, oi: 18920, vol: 6140 },
+                    { strike: 250, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 1.65, ask: 1.85, oi: 9870, vol: 3120 },
+                    { strike: 255, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.00, ask: 1.20, oi: 7540, vol: 2180 },
+                    { strike: 235, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 6.40, ask: 6.70, oi: 11450, vol: 4320 },
+                    { strike: 240, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 4.70, ask: 5.00, oi: 9680, vol: 3450 },
+                    { strike: 245, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 3.30, ask: 3.55, oi: 14560, vol: 4870 },
+                    { strike: 250, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 2.20, ask: 2.45, oi: 7890, vol: 2640 },
+                    { strike: 255, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 1.40, ask: 1.65, oi: 5670, vol: 1820 },
+                ],
+            },
+            QQQ: {
+                price: 528.30,
+                options: [
+                    { strike: 540, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 8.60, ask: 9.00, oi: 24560, vol: 9870 },
+                    { strike: 545, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 6.80, ask: 7.15, oi: 19340, vol: 7650 },
+                    { strike: 550, exp: "2026-03-20", dte: 31, delta: 0.20, bid: 5.20, ask: 5.50, oi: 31280, vol: 12340 },
+                    { strike: 560, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 2.90, ask: 3.15, oi: 16540, vol: 5890 },
+                    { strike: 570, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.50, ask: 1.75, oi: 11230, vol: 3870 },
+                    { strike: 540, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 10.40, ask: 10.80, oi: 18940, vol: 7560 },
+                    { strike: 550, exp: "2026-03-27", dte: 38, delta: 0.22, bid: 6.80, ask: 7.15, oi: 24670, vol: 9340 },
+                    { strike: 560, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 4.20, ask: 4.50, oi: 13280, vol: 4870 },
+                    { strike: 570, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 2.40, ask: 2.70, oi: 9450, vol: 3120 },
+                ],
+            },
+        };
+
+        // Default sample for unknown tickers: generate from price estimate
+        function generateSampleOptions(symbol, estimatedPrice) {
+            const price = estimatedPrice || 100;
+            const options = [];
+            const exp1 = "2026-03-20", exp2 = "2026-03-27";
+            const deltas = [0.29, 0.24, 0.20, 0.16, 0.12, 0.10];
+            const iv = price > 500 ? 0.18 : price > 200 ? 0.25 : price > 100 ? 0.35 : 0.45;
+
+            for (const [i, delta] of deltas.entries()) {
+                const otmPct = 1 + (0.03 + i * 0.025) * (iv / 0.30);
+                const strike = Math.round(price * otmPct / 5) * 5 || Math.ceil(price * otmPct);
+                const timeVal = price * iv * Math.sqrt(31 / 365) * delta * 1.8;
+                const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
+                options.push({ strike, exp: exp1, dte: 31, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(2000 + Math.random() * 8000), vol: Math.floor(400 + Math.random() * 3000) });
+            }
+            for (const [i, delta] of [0.30, 0.25, 0.19, 0.14, 0.10].entries()) {
+                const otmPct = 1 + (0.03 + i * 0.03) * (iv / 0.30);
+                const strike = Math.round(price * otmPct / 5) * 5 || Math.ceil(price * otmPct);
+                const timeVal = price * iv * Math.sqrt(38 / 365) * delta * 1.8;
+                const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
+                options.push({ strike, exp: exp2, dte: 38, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(1500 + Math.random() * 6000), vol: Math.floor(300 + Math.random() * 2000) });
+            }
+            return options;
+        }
+
+        function getSampleData(symbol) {
+            const upper = symbol.toUpperCase();
+            if (sampleDataByTicker[upper]) return sampleDataByTicker[upper];
+            // Generate reasonable data for unknown tickers
+            return { price: 100, options: generateSampleOptions(upper, 100) };
+        }
 
         // ── State ──
-        let currentOptions = [...sampleOptions];
+        const defaultSample = getSampleData("MSTR");
+        let currentOptions = [...defaultSample.options];
         let selectedIndex = null;
         let isLiveData = false;
         let currentTicker = "MSTR";
@@ -487,44 +613,27 @@
         }
 
         async function yahooFetch(symbol, dateParam) {
-            // Try both Yahoo Finance API versions
-            const urls = [
-                "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + (dateParam ? "?date=" + dateParam : ""),
-                "https://query2.finance.yahoo.com/v7/finance/options/" + symbol + (dateParam ? "?date=" + dateParam : ""),
-            ];
+            const qs = dateParam ? "?date=" + dateParam : "";
+            const yahooUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + qs;
 
             // Try 1: Flask backend proxy (works when running python app.py)
-            for (const yahooUrl of urls) {
-                try {
-                    const backendPath = "/api/yahoo/options/" + symbol + (dateParam ? "?date=" + dateParam : "");
-                    const data = await fetchJSON(backendPath, 8000);
-                    if (data && !data.error && data.optionChain) return data;
-                } catch (e) { /* backend unavailable */ }
-            }
+            try {
+                const backendPath = "/api/yahoo/options/" + symbol + qs;
+                const data = await fetchJSON(backendPath, 6000);
+                if (data && !data.error && data.optionChain) return data;
+            } catch (e) { /* backend unavailable */ }
 
-            // Try 2: CORS proxies (works from any browser)
+            // Try 2: CORS proxies — fast 6s timeout, bail early
             const proxies = [
                 { name: "corsproxy.io", fn: u => "https://corsproxy.io/?" + encodeURIComponent(u) },
                 { name: "allorigins", fn: u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
                 { name: "codetabs", fn: u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) },
-                { name: "cors.sh", fn: u => "https://proxy.cors.sh/" + u },
             ];
 
-            for (const yahooUrl of urls) {
-                for (const proxy of proxies) {
-                    try {
-                        setStatus("Trying " + proxy.name + "...", "loading");
-                        const data = await fetchJSON(proxy.fn(yahooUrl), 12000);
-                        if (data && data.optionChain) return data;
-                    } catch (e) { continue; }
-                }
-            }
-
-            // Try 3: Direct fetch (may work on some mobile browsers)
-            for (const yahooUrl of urls) {
+            for (const proxy of proxies) {
                 try {
-                    setStatus("Trying direct fetch...", "loading");
-                    const data = await fetchJSON(yahooUrl, 8000);
+                    setStatus("Trying " + proxy.name + "...", "loading");
+                    const data = await fetchJSON(proxy.fn(yahooUrl), 6000);
                     if (data && data.optionChain) return data;
                 } catch (e) { continue; }
             }
@@ -603,12 +712,19 @@
                     throw new Error("No options matched 10-30 delta range for " + symbol);
                 }
             } catch (e) {
-                // Fall back to sample data
+                // Fall back to ticker-specific sample data
+                const sample = getSampleData(symbol);
+                currentOptions = [...sample.options];
+                currentTicker = symbol;
+                stockPriceInput.value = sample.price.toFixed(2);
+                headerBadge.textContent = symbol;
                 isLiveData = false;
+                selectedIndex = null;
                 updateBadge();
                 renderTable();
                 updateProjections();
-                setStatus("Fetch failed: " + e.message + ". Showing MSTR sample data. Try running Flask: python app.py", "error");
+                const knownTicker = sampleDataByTicker[symbol] ? "" : " (generic estimate)";
+                setStatus("API unavailable — showing " + symbol + " sample data" + knownTicker + ". Run Flask for live data.", "error");
             }
 
             fetchBtn.disabled = false;
@@ -802,7 +918,10 @@
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
         // ── Initial render ──
+        stockPriceInput.value = defaultSample.price.toFixed(2);
+        updateBadge();
         renderTable();
+        updateProjections();
         fetchFreeData();
     </script>
 </body>
