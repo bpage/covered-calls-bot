@@ -203,32 +203,6 @@
             text-align: center;
             line-height: 1.6;
         }
-        .login-section {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 1.2rem;
-            margin-bottom: 1.5rem;
-        }
-        .login-row {
-            display: flex;
-            gap: 0.8rem;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .login-row .input-group { flex: 1; min-width: 140px; }
-        .login-row input[type="text"],
-        .login-row input[type="password"],
-        .login-row input[type="email"] {
-            width: 100%;
-            padding: 0.6rem 0.8rem;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            color: #e6edf3;
-            font-size: 0.95rem;
-        }
-        .login-row input:focus { outline: none; border-color: #58a6ff; }
         .btn {
             padding: 0.6rem 1.2rem;
             border: none;
@@ -248,17 +222,6 @@
             color: #484f58;
             cursor: not-allowed;
         }
-        .btn-secondary {
-            background: #21262d;
-            color: #c9d1d9;
-            border: 1px solid #30363d;
-        }
-        .btn-secondary:hover { background: #30363d; }
-        .btn-danger {
-            background: #da3633;
-            color: #fff;
-        }
-        .btn-danger:hover { background: #f85149; }
         .status-msg {
             font-size: 0.85rem;
             margin-top: 0.6rem;
@@ -312,33 +275,7 @@
     </header>
 
     <div class="container">
-        <!-- Robinhood Login -->
-        <div class="login-section" id="loginSection">
-            <h2>Robinhood Login</h2>
-            <p style="font-size:0.85rem; color:#8b949e; margin-bottom:0.8rem;">
-                Log in to fetch live MSTR option prices via <strong>robin_stocks</strong>. Requires the Flask backend (<code>python app.py</code>).
-            </p>
-            <div class="login-row" id="loginForm">
-                <div class="input-group">
-                    <label for="rhEmail">Email</label>
-                    <input type="email" id="rhEmail" placeholder="you@example.com">
-                </div>
-                <div class="input-group">
-                    <label for="rhPassword">Password</label>
-                    <input type="password" id="rhPassword" placeholder="Password">
-                </div>
-                <div class="input-group" style="flex:0.6; min-width:110px;">
-                    <label for="rhMFA">MFA Code</label>
-                    <input type="text" id="rhMFA" placeholder="Optional">
-                </div>
-                <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Log In</button>
-            </div>
-            <div class="login-row" id="loggedInBar" style="display:none;">
-                <span style="color:#3fb950; font-weight:600;">Logged in to Robinhood</span>
-                <button class="btn btn-danger" onclick="doLogout()" style="margin-left:auto;">Log Out</button>
-            </div>
-            <div class="status-msg" id="loginStatus"></div>
-        </div>
+        <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
             MSTR call options load automatically from <strong>Yahoo Finance</strong> (delayed ~15 min). Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
@@ -402,7 +339,6 @@
 
         <p class="disclaimer">
             Live prices from Yahoo Finance (delayed ~15 min). Falls back to sample data if unavailable.
-            Robinhood login provides real-time data when Flask backend is running.
             This is not financial advice. Option premiums, stock prices, and market conditions change constantly.
             Covered calls cap your upside if the stock rises above the strike price.
         </p>
@@ -429,9 +365,7 @@
         // ── State ──
         let currentOptions = [...sampleOptions];
         let selectedIndex = null;
-        let isLoggedIn = false;
         let isLiveData = false;
-        let dataSource = "sample"; // "sample", "yahoo", "robinhood"
 
         // ── DOM refs ──
         const sharesInput = document.getElementById("shares");
@@ -442,8 +376,6 @@
         const summaryRow = document.getElementById("summaryRow");
         const projGrid = document.getElementById("projGrid");
         const loginStatus = document.getElementById("loginStatus");
-        const loginForm = document.getElementById("loginForm");
-        const loggedInBar = document.getElementById("loggedInBar");
         const fetchBtn = document.getElementById("fetchBtn");
         const dataBadge = document.getElementById("dataBadge");
 
@@ -457,63 +389,13 @@
         }
 
         function updateBadge() {
-            if (dataSource === "yahoo") {
+            if (isLiveData) {
                 dataBadge.textContent = "LIVE — YAHOO FINANCE";
-                dataBadge.className = "data-source-badge badge-live";
-            } else if (dataSource === "robinhood") {
-                dataBadge.textContent = "LIVE — ROBINHOOD";
                 dataBadge.className = "data-source-badge badge-live";
             } else {
                 dataBadge.textContent = "SAMPLE DATA";
                 dataBadge.className = "data-source-badge badge-sample";
             }
-        }
-
-        // ── Robinhood Login ──
-        async function doLogin() {
-            const email = document.getElementById("rhEmail").value.trim();
-            const password = document.getElementById("rhPassword").value;
-            const mfa = document.getElementById("rhMFA").value.trim();
-
-            if (!email || !password) {
-                setStatus("Email and password are required.", "error");
-                return;
-            }
-
-            setStatus("Logging in...", "loading");
-            document.getElementById("loginBtn").disabled = true;
-
-            try {
-                const res = await fetch("/api/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password, mfa_code: mfa || null }),
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    isLoggedIn = true;
-                    loginForm.style.display = "none";
-                    loggedInBar.style.display = "flex";
-                    setStatus("Logged in! Click Refresh to load real-time data.", "success");
-                } else {
-                    setStatus(data.error || "Login failed.", "error");
-                    document.getElementById("loginBtn").disabled = false;
-                }
-            } catch (e) {
-                setStatus("Cannot reach backend. Is the Flask server running? (python app.py)", "error");
-                document.getElementById("loginBtn").disabled = false;
-            }
-        }
-
-        async function doLogout() {
-            try { await fetch("/api/logout", { method: "POST" }); } catch {}
-            isLoggedIn = false;
-            loginForm.style.display = "flex";
-            loggedInBar.style.display = "none";
-            document.getElementById("loginBtn").disabled = false;
-            setStatus("Logged out.", "success");
-            fetchFreeData(); // Reload from Yahoo Finance
         }
 
         // ── Black-Scholes Delta (for Yahoo Finance data) ──
@@ -606,7 +488,6 @@
                     allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || a.strike - b.strike);
                     currentOptions = allOptions;
                     isLiveData = true;
-                    dataSource = "yahoo";
                     selectedIndex = null;
                     stockPriceInput.value = stockPrice.toFixed(2);
                     updateBadge();
@@ -618,7 +499,6 @@
                 }
             } catch (e) {
                 // Fall back to sample data
-                dataSource = "sample";
                 isLiveData = false;
                 updateBadge();
                 renderTable();
@@ -665,48 +545,9 @@
             }
         }
 
-        // ── Robinhood Fetch (requires Flask backend) ──
-        async function fetchRobinhoodData() {
-            fetchBtn.disabled = true;
-            fetchBtn.textContent = "Fetching...";
-
-            try {
-                const res = await fetch("/api/options/MSTR?min_dte=20&max_dte=60&min_delta=0.10&max_delta=0.30&type=call");
-                const data = await res.json();
-
-                if (data.success && data.options.length > 0) {
-                    currentOptions = data.options;
-                    isLiveData = true;
-                    dataSource = "robinhood";
-                    selectedIndex = null;
-
-                    if (data.stock_price) {
-                        stockPriceInput.value = data.stock_price.toFixed(2);
-                    }
-
-                    updateBadge();
-                    renderTable();
-                    updateProjections();
-                    setStatus("Loaded " + data.options.length + " real-time options from Robinhood.", "success");
-                } else {
-                    setStatus(data.error || "No options matched filters.", "error");
-                }
-            } catch (e) {
-                setStatus("Backend not running. Using Yahoo Finance instead.", "error");
-                await fetchFreeData();
-            }
-
-            fetchBtn.disabled = false;
-            fetchBtn.textContent = "Refresh Live Data";
-        }
-
-        // ── Smart Refresh ──
+        // ── Refresh button handler ──
         async function refreshData() {
-            if (isLoggedIn) {
-                await fetchRobinhoodData();
-            } else {
-                await fetchFreeData();
-            }
+            await fetchFreeData();
         }
 
         // ── Table Rendering ──
@@ -822,11 +663,6 @@
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
-
-        // Allow Enter key to submit login
-        document.querySelectorAll("#loginForm input").forEach(input => {
-            input.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
-        });
 
         // ── Initial render ──
         renderTable(); // Show sample data immediately
