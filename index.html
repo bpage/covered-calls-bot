@@ -345,7 +345,7 @@
                 <div class="input-group">
                     <label for="stockPrice">MSTR Stock Price ($)</label>
                     <div class="hint">Current market price</div>
-                    <input type="number" id="stockPrice" min="1" step="0.01" value="326.50">
+                    <input type="number" id="stockPrice" min="1" step="0.01" value="133.88">
                 </div>
                 <div class="input-group">
                     <label for="cycleLength">Option Cycle (days)</label>
@@ -401,20 +401,19 @@
     <script>
         // ── Sample fallback data ──
         const sampleOptions = [
-            { strike: 410, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 16.80, ask: 17.60, oi: 3842, vol: 1250 },
-            { strike: 420, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 14.20, ask: 14.90, oi: 5120, vol: 980 },
-            { strike: 430, exp: "2026-03-20", dte: 31, delta: 0.22, bid: 11.90, ask: 12.55, oi: 4215, vol: 870 },
-            { strike: 440, exp: "2026-03-20", dte: 31, delta: 0.19, bid: 9.80, ask: 10.40, oi: 3680, vol: 760 },
-            { strike: 450, exp: "2026-03-20", dte: 31, delta: 0.16, bid: 8.00, ask: 8.55, oi: 6530, vol: 1420 },
-            { strike: 460, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 6.50, ask: 7.00, oi: 2940, vol: 630 },
-            { strike: 470, exp: "2026-03-20", dte: 31, delta: 0.12, bid: 5.20, ask: 5.70, oi: 2180, vol: 440 },
-            { strike: 480, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 4.10, ask: 4.55, oi: 1850, vol: 310 },
-            { strike: 400, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 20.50, ask: 21.30, oi: 2750, vol: 890 },
-            { strike: 420, exp: "2026-03-27", dte: 38, delta: 0.26, bid: 16.10, ask: 16.80, oi: 3910, vol: 720 },
-            { strike: 440, exp: "2026-03-27", dte: 38, delta: 0.21, bid: 12.00, ask: 12.65, oi: 3340, vol: 650 },
-            { strike: 460, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 8.50, ask: 9.10, oi: 2680, vol: 510 },
-            { strike: 480, exp: "2026-03-27", dte: 38, delta: 0.12, bid: 5.80, ask: 6.35, oi: 1920, vol: 380 },
-            { strike: 500, exp: "2026-03-27", dte: 38, delta: 0.10, bid: 4.20, ask: 4.70, oi: 1560, vol: 260 },
+            { strike: 145, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 7.20, ask: 7.80, oi: 4120, vol: 1340 },
+            { strike: 150, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 5.60, ask: 6.10, oi: 5480, vol: 1050 },
+            { strike: 155, exp: "2026-03-20", dte: 31, delta: 0.21, bid: 4.20, ask: 4.65, oi: 3890, vol: 870 },
+            { strike: 160, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 3.10, ask: 3.50, oi: 3250, vol: 720 },
+            { strike: 165, exp: "2026-03-20", dte: 31, delta: 0.15, bid: 2.30, ask: 2.65, oi: 5810, vol: 1280 },
+            { strike: 170, exp: "2026-03-20", dte: 31, delta: 0.12, bid: 1.70, ask: 2.00, oi: 2640, vol: 540 },
+            { strike: 175, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.20, ask: 1.50, oi: 1980, vol: 380 },
+            { strike: 145, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 8.30, ask: 8.90, oi: 3150, vol: 960 },
+            { strike: 150, exp: "2026-03-27", dte: 38, delta: 0.27, bid: 6.60, ask: 7.10, oi: 4280, vol: 810 },
+            { strike: 155, exp: "2026-03-27", dte: 38, delta: 0.23, bid: 5.10, ask: 5.55, oi: 3560, vol: 690 },
+            { strike: 160, exp: "2026-03-27", dte: 38, delta: 0.19, bid: 3.80, ask: 4.20, oi: 2920, vol: 570 },
+            { strike: 170, exp: "2026-03-27", dte: 38, delta: 0.13, bid: 2.10, ask: 2.45, oi: 2140, vol: 410 },
+            { strike: 180, exp: "2026-03-27", dte: 38, delta: 0.10, bid: 1.30, ask: 1.60, oi: 1680, vol: 290 },
         ];
 
         // ── State ──
