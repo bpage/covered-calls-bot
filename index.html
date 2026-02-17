@@ -255,6 +255,39 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .quick-tickers {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .quick-tickers span {
+            font-size: 0.8rem;
+            color: #8b949e;
+            align-self: center;
+            margin-right: 0.2rem;
+        }
+        .ticker-btn {
+            padding: 0.3rem 0.7rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .ticker-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        .ticker-btn.active {
+            background: #1f6feb;
+            border-color: #1f6feb;
+            color: #fff;
+        }
         .fetch-bar {
             display: flex;
             gap: 0.8rem;
@@ -278,7 +311,7 @@
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            Enter a stock ticker and click <strong>Fetch Options</strong> to load call options from <strong>Yahoo Finance</strong> (delayed ~15 min). Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
+            Type any stock ticker to automatically load its price and call options from <strong>Yahoo Finance</strong> (delayed ~15 min), or click a quick pick below. Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -309,6 +342,20 @@
                     </select>
                 </div>
             </div>
+        </div>
+
+        <div class="quick-tickers" id="quickTickers">
+            <span>Quick pick:</span>
+            <button class="ticker-btn active" onclick="selectTicker('MSTR')">MSTR</button>
+            <button class="ticker-btn" onclick="selectTicker('AAPL')">AAPL</button>
+            <button class="ticker-btn" onclick="selectTicker('TSLA')">TSLA</button>
+            <button class="ticker-btn" onclick="selectTicker('NVDA')">NVDA</button>
+            <button class="ticker-btn" onclick="selectTicker('AMZN')">AMZN</button>
+            <button class="ticker-btn" onclick="selectTicker('MSFT')">MSFT</button>
+            <button class="ticker-btn" onclick="selectTicker('META')">META</button>
+            <button class="ticker-btn" onclick="selectTicker('GOOGL')">GOOGL</button>
+            <button class="ticker-btn" onclick="selectTicker('SPY')">SPY</button>
+            <button class="ticker-btn" onclick="selectTicker('QQQ')">QQQ</button>
         </div>
 
         <div class="fetch-bar">
@@ -675,11 +722,66 @@
             projectionsDiv.classList.remove("hidden");
         }
 
+        // ── Auto-fetch price on ticker change (debounced) ──
+        let tickerDebounce = null;
+        async function fetchStockPrice(symbol) {
+            try {
+                const data = await proxyFetch("https://query2.finance.yahoo.com/v7/finance/options/" + symbol);
+                if (data && data.optionChain && data.optionChain.result && data.optionChain.result[0]) {
+                    const price = data.optionChain.result[0].quote && data.optionChain.result[0].quote.regularMarketPrice;
+                    if (price) {
+                        stockPriceInput.value = price.toFixed(2);
+                        headerBadge.textContent = symbol;
+                        currentTicker = symbol;
+                        return price;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            return null;
+        }
+
+        tickerInput.addEventListener("input", () => {
+            clearTimeout(tickerDebounce);
+            const symbol = tickerInput.value.trim().toUpperCase();
+            if (symbol.length < 1 || symbol.length > 5) return;
+            // Update quick-pick button highlighting
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === symbol);
+            });
+            tickerDebounce = setTimeout(async () => {
+                stockPriceInput.value = "";
+                stockPriceInput.placeholder = "Loading...";
+                const price = await fetchStockPrice(symbol);
+                if (price) {
+                    stockPriceInput.placeholder = "e.g. 150.00";
+                    // Auto-fetch full options after price loads
+                    refreshData();
+                } else {
+                    stockPriceInput.placeholder = "Not found";
+                    setStatus("Could not find ticker \"" + symbol + "\". Check the symbol and try again.", "error");
+                }
+            }, 600);
+        });
+
+        // ── Quick ticker buttons ──
+        function selectTicker(symbol) {
+            tickerInput.value = symbol;
+            // Highlight active button
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === symbol);
+            });
+            // Clear debounce and fetch immediately
+            clearTimeout(tickerDebounce);
+            stockPriceInput.value = "";
+            stockPriceInput.placeholder = "Loading...";
+            refreshData();
+        }
+
         // ── Event listeners ──
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
-        tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") refreshData(); });
+        tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
         // ── Initial render ──
         renderTable();
