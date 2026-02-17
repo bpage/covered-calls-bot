@@ -471,25 +471,22 @@
             return 0.5 * (1.0 + erfApprox(d1 / Math.sqrt(2.0)));
         }
 
-        // ── Fetch via CORS proxy ──
-        async function proxyFetch(url) {
-            const proxies = [
-                u => "https://corsproxy.io/?" + encodeURIComponent(u),
-                u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-            ];
-            for (const mkProxy of proxies) {
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 10000);
-                    const res = await fetch(mkProxy(url), { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (res.ok) return await res.json();
-                } catch (e) { continue; }
+        // ── Fetch Yahoo Finance data via Flask backend (no CORS issues) ──
+        async function apiFetch(path) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            try {
+                const res = await fetch(path, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return await res.json();
+            } catch (e) {
+                clearTimeout(timeout);
+                throw e;
             }
-            return null;
         }
 
-        // ── Yahoo Finance Free Fetch ──
+        // ── Main data fetch ──
         async function fetchFreeData() {
             const symbol = tickerInput.value.trim().toUpperCase();
             if (!symbol) {
@@ -503,17 +500,20 @@
             dataBadge.className = "data-source-badge badge-loading";
 
             try {
-                const baseUrl = "https://query2.finance.yahoo.com/v7/finance/options/" + symbol;
-
-                // Step 1: Get stock price + expiration dates + first chain
-                const data = await proxyFetch(baseUrl);
-                if (!data || !data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
-                    throw new Error("Yahoo Finance unavailable");
+                // Step 1: Get stock price + expiration dates + first chain via backend
+                const data = await apiFetch("/api/yahoo/options/" + symbol);
+                if (data.error) throw new Error(data.error);
+                if (!data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
+                    throw new Error("No data returned for " + symbol);
                 }
 
                 const result = data.optionChain.result[0];
                 const stockPrice = result.quote && result.quote.regularMarketPrice;
-                if (!stockPrice) throw new Error("No stock price returned");
+                if (!stockPrice) throw new Error("No stock price returned for " + symbol);
+
+                // Update price immediately
+                stockPriceInput.value = stockPrice.toFixed(2);
+                headerBadge.textContent = symbol;
 
                 const expirationDates = result.expirationDates || [];
                 const nowSec = Date.now() / 1000;
@@ -536,8 +536,7 @@
                 const remaining = validExps.filter(e => e !== firstExp);
 
                 for (const expTs of remaining) {
-                    await new Promise(r => setTimeout(r, 300));
-                    const chainData = await proxyFetch(baseUrl + "?date=" + expTs);
+                    const chainData = await apiFetch("/api/yahoo/options/" + symbol + "?date=" + expTs);
                     if (chainData && chainData.optionChain && chainData.optionChain.result
                         && chainData.optionChain.result[0] && chainData.optionChain.result[0].options
                         && chainData.optionChain.result[0].options[0]) {
@@ -551,14 +550,12 @@
                     currentTicker = symbol;
                     isLiveData = true;
                     selectedIndex = null;
-                    stockPriceInput.value = stockPrice.toFixed(2);
-                    headerBadge.textContent = symbol;
                     updateBadge();
                     renderTable();
                     updateProjections();
                     setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
                 } else {
-                    throw new Error("No options matched 10-30 delta range");
+                    throw new Error("No options matched 10-30 delta range for " + symbol);
                 }
             } catch (e) {
                 // Fall back to sample data
@@ -566,7 +563,7 @@
                 updateBadge();
                 renderTable();
                 updateProjections();
-                setStatus("Live fetch failed (" + e.message + "). Showing sample data.", "error");
+                setStatus("Fetch failed: " + e.message + ". Showing sample data.", "error");
             }
 
             fetchBtn.disabled = false;
@@ -722,23 +719,8 @@
             projectionsDiv.classList.remove("hidden");
         }
 
-        // ── Auto-fetch price on ticker change (debounced) ──
+        // ── Auto-fetch on ticker change (debounced) ──
         let tickerDebounce = null;
-        async function fetchStockPrice(symbol) {
-            try {
-                const data = await proxyFetch("https://query2.finance.yahoo.com/v7/finance/options/" + symbol);
-                if (data && data.optionChain && data.optionChain.result && data.optionChain.result[0]) {
-                    const price = data.optionChain.result[0].quote && data.optionChain.result[0].quote.regularMarketPrice;
-                    if (price) {
-                        stockPriceInput.value = price.toFixed(2);
-                        headerBadge.textContent = symbol;
-                        currentTicker = symbol;
-                        return price;
-                    }
-                }
-            } catch (e) { /* ignore */ }
-            return null;
-        }
 
         tickerInput.addEventListener("input", () => {
             clearTimeout(tickerDebounce);
@@ -748,18 +730,9 @@
             document.querySelectorAll(".ticker-btn").forEach(btn => {
                 btn.classList.toggle("active", btn.textContent === symbol);
             });
-            tickerDebounce = setTimeout(async () => {
-                stockPriceInput.value = "";
-                stockPriceInput.placeholder = "Loading...";
-                const price = await fetchStockPrice(symbol);
-                if (price) {
-                    stockPriceInput.placeholder = "e.g. 150.00";
-                    // Auto-fetch full options after price loads
-                    refreshData();
-                } else {
-                    stockPriceInput.placeholder = "Not found";
-                    setStatus("Could not find ticker \"" + symbol + "\". Check the symbol and try again.", "error");
-                }
+            tickerDebounce = setTimeout(() => {
+                // Auto-fetch price + options via backend
+                refreshData();
             }, 600);
         });
 

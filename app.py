@@ -1,8 +1,16 @@
 from flask import Flask, jsonify, request, send_file
 from datetime import datetime, timedelta
-import robin_stocks.robinhood as r
+import requests as http_requests
+
+try:
+    import robin_stocks.robinhood as r
+except ImportError:
+    r = None
 
 app = Flask(__name__)
+
+YAHOO_BASE = "https://query2.finance.yahoo.com/v7/finance/options/"
+YAHOO_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 @app.route("/")
@@ -133,10 +141,26 @@ def get_options(symbol):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/yahoo/options/<symbol>")
+def yahoo_options(symbol):
+    """Proxy Yahoo Finance options data server-side (no CORS issues)."""
+    date_param = request.args.get("date", "")
+    url = YAHOO_BASE + symbol.upper()
+    if date_param:
+        url += "?date=" + date_param
+    try:
+        resp = http_requests.get(url, headers=YAHOO_HEADERS, timeout=10)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/logout", methods=["POST"])
 def logout():
     try:
-        r.logout()
+        if r:
+            r.logout()
     except Exception:
         pass
     return jsonify({"success": True})
