@@ -1,4 +1,5 @@
 flask>=3.0
+gunicorn>=21.2
 robin-stocks>=3.0
 pyotp
 requests>=2.28
