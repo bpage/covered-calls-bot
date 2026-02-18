@@ -384,6 +384,7 @@
             <button class="ticker-btn" onclick="selectTicker('GOOGL')">GOOGL</button>
             <button class="ticker-btn" onclick="selectTicker('SPY')">SPY</button>
             <button class="ticker-btn" onclick="selectTicker('QQQ')">QQQ</button>
+            <button class="ticker-btn" id="addTickerBtn" onclick="addCustomTicker()" style="color:#58a6ff; border-color:#58a6ff;">+</button>
         </div>
 
         <div class="fetch-bar">
@@ -772,9 +773,8 @@
                     updateProjections();
                     setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
                 } else {
-                    // Got a live price but no options matched delta range — use sample options with live price
-                    const sample = getSampleData(symbol);
-                    currentOptions = [...sample.options];
+                    // Got a live price but no options matched delta range — generate sample options at live price
+                    currentOptions = generateSampleOptions(symbol, stockPrice);
                     currentTicker = symbol;
                     isLiveData = false;
                     selectedIndex = 0;
@@ -979,6 +979,8 @@
         });
 
         // ── Quick ticker buttons ──
+        const defaultTickers = ["MSTR", "AAPL", "TSLA", "NVDA", "AMZN", "MSFT", "META", "GOOGL", "SPY", "QQQ"];
+
         function selectTicker(symbol) {
             tickerInput.value = symbol;
             // Highlight active button
@@ -991,6 +993,56 @@
             stockPriceInput.placeholder = "Loading...";
             refreshData();
         }
+
+        function addCustomTicker() {
+            const symbol = prompt("Enter ticker symbol:")?.trim().toUpperCase();
+            if (!symbol || symbol.length > 5) return;
+            // Check if already exists
+            const existing = document.querySelectorAll(".ticker-btn");
+            for (const btn of existing) {
+                if (btn.textContent === symbol) {
+                    selectTicker(symbol);
+                    return;
+                }
+            }
+            // Save to localStorage
+            const custom = JSON.parse(localStorage.getItem("customTickers") || "[]");
+            if (!custom.includes(symbol)) {
+                custom.push(symbol);
+                localStorage.setItem("customTickers", JSON.stringify(custom));
+            }
+            // Add button before the "+" button
+            const addBtn = document.getElementById("addTickerBtn");
+            const btn = document.createElement("button");
+            btn.className = "ticker-btn";
+            btn.textContent = symbol;
+            btn.onclick = () => selectTicker(symbol);
+            // Add right-click to remove
+            btn.oncontextmenu = (e) => { e.preventDefault(); removeCustomTicker(symbol, btn); };
+            addBtn.parentNode.insertBefore(btn, addBtn);
+            selectTicker(symbol);
+        }
+
+        function removeCustomTicker(symbol, btn) {
+            if (!confirm("Remove " + symbol + " from quick picks?")) return;
+            btn.remove();
+            const custom = JSON.parse(localStorage.getItem("customTickers") || "[]");
+            localStorage.setItem("customTickers", JSON.stringify(custom.filter(t => t !== symbol)));
+        }
+
+        // Restore custom tickers from localStorage on load
+        (function loadCustomTickers() {
+            const custom = JSON.parse(localStorage.getItem("customTickers") || "[]");
+            const addBtn = document.getElementById("addTickerBtn");
+            custom.forEach(symbol => {
+                const btn = document.createElement("button");
+                btn.className = "ticker-btn";
+                btn.textContent = symbol;
+                btn.onclick = () => selectTicker(symbol);
+                btn.oncontextmenu = (e) => { e.preventDefault(); removeCustomTicker(symbol, btn); };
+                addBtn.parentNode.insertBefore(btn, addBtn);
+            });
+        })();
 
         // ── Event listeners ──
         sharesInput.addEventListener("input", updateProjections);
