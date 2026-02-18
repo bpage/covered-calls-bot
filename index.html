@@ -766,7 +766,7 @@
                     currentOptions = allOptions;
                     currentTicker = symbol;
                     isLiveData = true;
-                    selectedIndex = null;
+                    selectedIndex = 0;
                     updateBadge();
                     renderTable();
                     updateProjections();
@@ -777,7 +777,7 @@
                     currentOptions = [...sample.options];
                     currentTicker = symbol;
                     isLiveData = false;
-                    selectedIndex = null;
+                    selectedIndex = 0;
                     dataBadge.textContent = "LIVE PRICE — SAMPLE OPTIONS";
                     dataBadge.className = "data-source-badge badge-live";
                     renderTable();
@@ -795,7 +795,7 @@
                 stockPriceInput.value = sample.price.toFixed(2);
                 headerBadge.textContent = symbol;
                 isLiveData = false;
-                selectedIndex = null;
+                selectedIndex = 0;
                 updateBadge();
                 renderTable();
                 updateProjections();
