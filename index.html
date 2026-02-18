@@ -616,10 +616,11 @@
             const qs = dateParam ? "?date=" + dateParam : "";
             const yahooUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + qs;
 
-            // Try 1: Flask backend proxy (works when running python app.py)
+            // Try 1: Flask backend proxy with yfinance (works on Render / local Flask)
             try {
                 const backendPath = "/api/yahoo/options/" + symbol + qs;
-                const data = await fetchJSON(backendPath, 6000);
+                setStatus("Fetching " + symbol + " from server...", "loading");
+                const data = await fetchJSON(backendPath, 30000);
                 if (data && !data.error && data.optionChain) return data;
             } catch (e) { /* backend unavailable */ }
 
