@@ -318,7 +318,7 @@
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>20-60 DTE</strong>, <strong>10-30 delta</strong>. Select an option to see income projections.
+            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>20-60 DTE</strong> filtered by your delta range. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -348,6 +348,27 @@
                         <option value="45">45 days</option>
                     </select>
                 </div>
+                <div class="input-group" style="flex:0.5; min-width:100px;">
+                    <label for="deltaMin">Min Delta</label>
+                    <div class="hint">Lower bound</div>
+                    <select id="deltaMin">
+                        <option value="0.05">5</option>
+                        <option value="0.10" selected>10</option>
+                        <option value="0.15">15</option>
+                        <option value="0.20">20</option>
+                    </select>
+                </div>
+                <div class="input-group" style="flex:0.5; min-width:100px;">
+                    <label for="deltaMax">Max Delta</label>
+                    <div class="hint">Upper bound</div>
+                    <select id="deltaMax">
+                        <option value="0.20">20</option>
+                        <option value="0.25">25</option>
+                        <option value="0.30" selected>30</option>
+                        <option value="0.35">35</option>
+                        <option value="0.40">40</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -366,7 +387,7 @@
         </div>
 
         <div class="fetch-bar">
-            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 20-60 DTE, Delta 10–30</h2>
+            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 20-60 DTE</h2>
             <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
             <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Fetch Options</button>
         </div>
@@ -601,6 +622,8 @@
         const sharesInput = document.getElementById("shares");
         const stockPriceInput = document.getElementById("stockPrice");
         const cycleLengthSelect = document.getElementById("cycleLength");
+        const deltaMinSelect = document.getElementById("deltaMin");
+        const deltaMaxSelect = document.getElementById("deltaMax");
         const optionBody = document.getElementById("optionBody");
         const projectionsDiv = document.getElementById("projections");
         const summaryRow = document.getElementById("summaryRow");
@@ -759,7 +782,9 @@
                     dataBadge.className = "data-source-badge badge-live";
                     renderTable();
                     updateProjections();
-                    setStatus("Live price $" + stockPrice.toFixed(2) + " for " + symbol + ". Options generated from estimates (none matched 10-30 delta range).", "success");
+                    const dMinVal = Math.round(parseFloat(deltaMinSelect.value) * 100);
+                    const dMaxVal = Math.round(parseFloat(deltaMaxSelect.value) * 100);
+                    setStatus("Live price $" + stockPrice.toFixed(2) + " for " + symbol + ". Options generated from estimates (none matched " + dMinVal + "-" + dMaxVal + " delta range).", "success");
                 }
             } catch (e) {
                 // Fall back to ticker-specific sample data
@@ -800,7 +825,9 @@
                 const T = dte / 365;
                 const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
 
-                if (delta >= 0.10 && delta <= 0.30) {
+                const dMin = parseFloat(deltaMinSelect.value);
+                const dMax = parseFloat(deltaMaxSelect.value);
+                if (delta >= dMin && delta <= dMax) {
                     const expDate = new Date(expTs * 1000);
                     const y = expDate.getUTCFullYear();
                     const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
@@ -969,6 +996,8 @@
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
+        deltaMinSelect.addEventListener("change", refreshData);
+        deltaMaxSelect.addEventListener("change", refreshData);
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
         // ── Initial render ──
