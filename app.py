@@ -64,7 +64,9 @@ def login():
     try:
         kwargs = {}
         if totp_key and pyotp:
-            totp = pyotp.TOTP(totp_key)
+            # Clean key: remove spaces, dashes, and force uppercase for base32
+            clean_key = totp_key.replace(" ", "").replace("-", "").upper()
+            totp = pyotp.TOTP(clean_key)
             kwargs["mfa_code"] = totp.now()
         elif mfa_code:
             kwargs["mfa_code"] = mfa_code
