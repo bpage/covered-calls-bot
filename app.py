@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_file
 from datetime import datetime, timedelta
+import os
 import math
 
 try:
@@ -12,7 +13,30 @@ try:
 except ImportError:
     yf = None
 
+try:
+    import pyotp
+except ImportError:
+    pyotp = None
+
 app = Flask(__name__)
+
+# Auto-login to Robinhood on startup if credentials are set
+rh_logged_in = False
+if r:
+    rh_email = os.environ.get("ROBINHOOD_EMAIL")
+    rh_password = os.environ.get("ROBINHOOD_PASSWORD")
+    rh_totp_key = os.environ.get("ROBINHOOD_TOTP_KEY")
+    if rh_email and rh_password:
+        try:
+            kwargs = {}
+            if rh_totp_key and pyotp:
+                totp = pyotp.TOTP(rh_totp_key)
+                kwargs["mfa_code"] = totp.now()
+            r.login(rh_email, rh_password, **kwargs)
+            rh_logged_in = True
+            print("Robinhood login successful")
+        except Exception as e:
+            print(f"Robinhood login failed: {e}")
 
 
 @app.route("/")
@@ -20,18 +44,32 @@ def index():
     return send_file("index.html")
 
 
+@app.route("/api/status")
+def status():
+    return jsonify({"logged_in": rh_logged_in})
+
+
 @app.route("/api/login", methods=["POST"])
 def login():
+    global rh_logged_in
+    if not r:
+        return jsonify({"success": False, "error": "robin_stocks not installed"}), 500
+
     data = request.json
     email = data.get("email", "")
     password = data.get("password", "")
     mfa_code = data.get("mfa_code")
+    totp_key = data.get("totp_key")
 
     try:
         kwargs = {}
-        if mfa_code:
+        if totp_key and pyotp:
+            totp = pyotp.TOTP(totp_key)
+            kwargs["mfa_code"] = totp.now()
+        elif mfa_code:
             kwargs["mfa_code"] = mfa_code
         r.login(email, password, **kwargs)
+        rh_logged_in = True
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 401
@@ -145,65 +183,130 @@ def get_options(symbol):
 
 @app.route("/api/yahoo/options/<symbol>")
 def yahoo_options(symbol):
-    """Fetch options data via yfinance library."""
-    if not yf:
-        return jsonify({"error": "yfinance not installed"}), 502
-    try:
-        ticker = yf.Ticker(symbol.upper())
-        info = ticker.fast_info
-        stock_price = float(info.last_price)
+    """Fetch options data — tries Robinhood first, then yfinance."""
+    symbol = symbol.upper()
+    today = datetime.now().date()
 
-        expirations = ticker.options  # list of date strings
-        today = datetime.now().date()
-        now_ts = datetime.now().timestamp()
+    # Try Robinhood first (real-time data)
+    if rh_logged_in and r:
+        try:
+            price_list = r.stocks.get_latest_price(symbol)
+            stock_price = float(price_list[0]) if price_list and price_list[0] else None
+            if not stock_price:
+                raise ValueError("No price")
 
-        # Build response matching the format the frontend expects
-        exp_timestamps = []
-        all_options = []
-        for exp_str in expirations:
-            exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
-            dte = (exp_date - today).days
-            if dte < 20 or dte > 60:
-                continue
-            exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
-            exp_timestamps.append(exp_ts)
+            chains = r.options.get_chains(symbol)
+            expiration_dates = chains.get("expiration_dates", []) if chains else []
 
-            chain = ticker.option_chain(exp_str)
-            calls = chain.calls
-            call_list = []
-            for _, row in calls.iterrows():
-                call_list.append({
-                    "strike": float(row["strike"]),
-                    "bid": float(row.get("bid", 0) or 0),
-                    "ask": float(row.get("ask", 0) or 0),
-                    "volume": int(row.get("volume", 0) or 0),
-                    "openInterest": int(row.get("openInterest", 0) or 0),
-                    "impliedVolatility": float(row.get("impliedVolatility", 0) or 0),
-                    "expiration": exp_ts,
-                })
-            all_options.append({"expirationDate": exp_ts, "calls": call_list})
+            exp_timestamps = []
+            all_options = []
+            for exp_str in expiration_dates:
+                exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+                dte = (exp_date - today).days
+                if dte < 20 or dte > 60:
+                    continue
+                exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
+                exp_timestamps.append(exp_ts)
 
-        result = {
-            "optionChain": {
-                "result": [{
-                    "quote": {"regularMarketPrice": stock_price},
-                    "expirationDates": exp_timestamps,
-                    "options": all_options,
-                }]
+                opts = r.options.find_options_by_expiration(symbol, exp_str, optionType="call")
+                call_list = []
+                for opt in (opts or []):
+                    strike = opt.get("strike_price")
+                    if not strike:
+                        continue
+                    try:
+                        md = r.options.get_option_market_data(symbol, exp_str, strike, "call")
+                        if not md:
+                            continue
+                        md = md[0]
+                        if isinstance(md, list):
+                            md = md[0] if md else {}
+                        iv = abs(float(md.get("implied_volatility", 0) or 0))
+                        call_list.append({
+                            "strike": float(strike),
+                            "bid": float(md.get("bid_price", 0) or 0),
+                            "ask": float(md.get("ask_price", 0) or 0),
+                            "volume": int(float(md.get("volume", 0) or 0)),
+                            "openInterest": int(float(md.get("open_interest", 0) or 0)),
+                            "impliedVolatility": iv,
+                            "expiration": exp_ts,
+                        })
+                    except Exception:
+                        continue
+                all_options.append({"expirationDate": exp_ts, "calls": call_list})
+
+            result = {
+                "source": "robinhood",
+                "optionChain": {
+                    "result": [{
+                        "quote": {"regularMarketPrice": stock_price},
+                        "expirationDates": exp_timestamps,
+                        "options": all_options,
+                    }]
+                }
             }
-        }
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
+            return jsonify(result)
+        except Exception as e:
+            print(f"Robinhood fetch failed for {symbol}: {e}")
+
+    # Fall back to yfinance
+    if yf:
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.fast_info
+            stock_price = float(info.last_price)
+
+            expirations = ticker.options
+            exp_timestamps = []
+            all_options = []
+            for exp_str in expirations:
+                exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+                dte = (exp_date - today).days
+                if dte < 20 or dte > 60:
+                    continue
+                exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
+                exp_timestamps.append(exp_ts)
+
+                chain = ticker.option_chain(exp_str)
+                call_list = []
+                for _, row in chain.calls.iterrows():
+                    call_list.append({
+                        "strike": float(row["strike"]),
+                        "bid": float(row.get("bid", 0) or 0),
+                        "ask": float(row.get("ask", 0) or 0),
+                        "volume": int(row.get("volume", 0) or 0),
+                        "openInterest": int(row.get("openInterest", 0) or 0),
+                        "impliedVolatility": float(row.get("impliedVolatility", 0) or 0),
+                        "expiration": exp_ts,
+                    })
+                all_options.append({"expirationDate": exp_ts, "calls": call_list})
+
+            result = {
+                "source": "yfinance",
+                "optionChain": {
+                    "result": [{
+                        "quote": {"regularMarketPrice": stock_price},
+                        "expirationDates": exp_timestamps,
+                        "options": all_options,
+                    }]
+                }
+            }
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+
+    return jsonify({"error": "No data source available"}), 502
 
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
+    global rh_logged_in
     try:
         if r:
             r.logout()
     except Exception:
         pass
+    rh_logged_in = False
     return jsonify({"success": True})
 
 
