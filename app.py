@@ -1,58 +1,111 @@
 from flask import Flask, jsonify, request, send_file
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import math
 import logging
 import traceback
+import requests as http_requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-try:
-    import yfinance as yf
-except ImportError:
-    yf = None
-
 app = Flask(__name__)
 
+# Yahoo Finance direct HTTP — bypasses yfinance library entirely
+YAHOO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+}
 
-def get_stock_price(ticker):
-    """Try multiple methods to get a reliable stock price."""
-    errors = []
+# Cache the session + crumb (reuse across requests)
+_yahoo_session = None
+_yahoo_crumb = None
 
-    # Method 1: fast_info.last_price
+
+def get_yahoo_session():
+    """Get a Yahoo Finance session with cookie + crumb for API access."""
+    global _yahoo_session, _yahoo_crumb
+
+    if _yahoo_session and _yahoo_crumb:
+        return _yahoo_session, _yahoo_crumb
+
+    session = http_requests.Session()
+    session.headers.update(YAHOO_HEADERS)
+
+    # Step 1: Visit Yahoo Finance to get cookies
     try:
-        price = float(ticker.fast_info.last_price)
-        if price > 0:
-            logger.info(f"Got price via fast_info: {price}")
-            return price
+        resp = session.get("https://finance.yahoo.com/quote/AAPL", timeout=10)
+        resp.raise_for_status()
+        logger.info(f"Yahoo session cookies: {len(session.cookies)} cookies")
     except Exception as e:
-        errors.append(f"fast_info: {e}")
+        logger.warning(f"Failed to get Yahoo cookies: {e}")
 
-    # Method 2: info dict
+    # Step 2: Get crumb using the cookies
     try:
-        info = ticker.info
-        for key in ["regularMarketPrice", "currentPrice", "previousClose"]:
-            if key in info and info[key]:
-                price = float(info[key])
-                if price > 0:
-                    logger.info(f"Got price via info[{key}]: {price}")
-                    return price
+        crumb_resp = session.get(
+            "https://query2.finance.yahoo.com/v1/test/getcrumb",
+            timeout=10
+        )
+        crumb_resp.raise_for_status()
+        crumb = crumb_resp.text.strip()
+        if crumb and len(crumb) < 50:
+            logger.info(f"Got Yahoo crumb: {crumb[:8]}...")
+            _yahoo_session = session
+            _yahoo_crumb = crumb
+            return session, crumb
     except Exception as e:
-        errors.append(f"info: {e}")
+        logger.warning(f"Failed to get Yahoo crumb: {e}")
 
-    # Method 3: last close from history
-    try:
-        hist = ticker.history(period="5d")
-        if not hist.empty:
-            price = float(hist["Close"].iloc[-1])
-            if price > 0:
-                logger.info(f"Got price via history: {price}")
-                return price
-    except Exception as e:
-        errors.append(f"history: {e}")
+    # Return session without crumb — some endpoints work without it
+    _yahoo_session = session
+    _yahoo_crumb = ""
+    return session, ""
 
-    raise ValueError(f"Could not get price. Tried: {'; '.join(errors)}")
+
+def invalidate_yahoo_session():
+    """Clear cached session so next request creates a fresh one."""
+    global _yahoo_session, _yahoo_crumb
+    _yahoo_session = None
+    _yahoo_crumb = None
+
+
+def yahoo_chart(symbol, session, crumb):
+    """Get stock price from Yahoo Finance v8 chart API."""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    params = {"range": "1d", "interval": "1d"}
+    if crumb:
+        params["crumb"] = crumb
+
+    resp = session.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+
+    result = data.get("chart", {}).get("result", [])
+    if not result:
+        raise ValueError(f"No chart data for {symbol}")
+
+    meta = result[0].get("meta", {})
+    price = meta.get("regularMarketPrice", 0)
+    if not price:
+        price = meta.get("previousClose", 0)
+    if not price:
+        raise ValueError(f"No price in chart data for {symbol}")
+
+    return float(price)
+
+
+def yahoo_options(symbol, session, crumb, date=None):
+    """Get options chain from Yahoo Finance v7 options API."""
+    url = f"https://query1.finance.yahoo.com/v7/finance/options/{symbol}"
+    params = {}
+    if date:
+        params["date"] = date
+    if crumb:
+        params["crumb"] = crumb
+
+    resp = session.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
 
 
 @app.route("/")
@@ -62,82 +115,109 @@ def index():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"yfinance": yf is not None})
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/yahoo/options/<symbol>")
-def yahoo_options(symbol):
-    """Fetch options data from Yahoo Finance."""
+def api_yahoo_options(symbol):
+    """Fetch stock price + options data from Yahoo Finance via direct HTTP."""
     symbol = symbol.upper()
     today = datetime.now().date()
 
-    if not yf:
-        return jsonify({"error": "yfinance not installed"}), 502
-
-    try:
-        ticker = yf.Ticker(symbol)
-        stock_price = get_stock_price(ticker)
-        logger.info(f"{symbol} price: {stock_price}")
-
+    # Try with cached session first, retry with fresh session on failure
+    for attempt in range(2):
         try:
-            expirations = ticker.options
-        except Exception as e:
-            logger.error(f"Failed to get options expirations for {symbol}: {e}")
-            # Return price even if options fail
+            session, crumb = get_yahoo_session()
+
+            # Get stock price from chart API (most reliable)
+            stock_price = yahoo_chart(symbol, session, crumb)
+            logger.info(f"{symbol} price: ${stock_price:.2f} (attempt {attempt + 1})")
+
+            # Get options chain
+            try:
+                options_data = yahoo_options(symbol, session, crumb)
+            except Exception as e:
+                logger.warning(f"Options fetch failed for {symbol}: {e}")
+                # Return price even if options fail
+                return jsonify({
+                    "source": "yahoo_direct",
+                    "optionChain": {
+                        "result": [{
+                            "quote": {"regularMarketPrice": stock_price},
+                            "expirationDates": [],
+                            "options": [],
+                        }]
+                    }
+                })
+
+            oc = options_data.get("optionChain", {})
+            results = oc.get("result", [])
+            if not results:
+                return jsonify({
+                    "source": "yahoo_direct",
+                    "optionChain": {
+                        "result": [{
+                            "quote": {"regularMarketPrice": stock_price},
+                            "expirationDates": [],
+                            "options": [],
+                        }]
+                    }
+                })
+
+            result = results[0]
+            # Override price from options response with chart price (more reliable)
+            if result.get("quote"):
+                result["quote"]["regularMarketPrice"] = stock_price
+            else:
+                result["quote"] = {"regularMarketPrice": stock_price}
+
+            exp_dates = result.get("expirationDates", [])
+            now_sec = datetime.now().timestamp()
+
+            # Filter options in first response to 20-60 DTE
+            first_options = result.get("options", [])
+
+            # Fetch additional expiration dates in 20-60 DTE range
+            valid_exps = [e for e in exp_dates if 20 <= (e - now_sec) / 86400 <= 60]
+            first_exp = first_options[0].get("expirationDate") if first_options else None
+
+            all_options = list(first_options)
+            for exp_ts in valid_exps[:3]:
+                if exp_ts == first_exp:
+                    continue
+                try:
+                    more = yahoo_options(symbol, session, crumb, date=exp_ts)
+                    more_result = more.get("optionChain", {}).get("result", [{}])[0]
+                    more_opts = more_result.get("options", [])
+                    all_options.extend(more_opts)
+                except Exception as e:
+                    logger.warning(f"Failed fetching expiration {exp_ts}: {e}")
+
+            # Filter exp_timestamps to valid range
+            exp_timestamps = [e for e in exp_dates if 20 <= (e - now_sec) / 86400 <= 60]
+
             return jsonify({
-                "source": "yfinance",
+                "source": "yahoo_direct",
                 "optionChain": {
                     "result": [{
                         "quote": {"regularMarketPrice": stock_price},
-                        "expirationDates": [],
-                        "options": [],
+                        "expirationDates": exp_timestamps,
+                        "options": all_options,
                     }]
                 }
             })
 
-        exp_timestamps = []
-        all_options = []
-        for exp_str in expirations:
-            exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
-            dte = (exp_date - today).days
-            if dte < 20 or dte > 60:
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1} failed for {symbol}: {e}")
+            if attempt == 0:
+                # First failure — invalidate session and retry
+                invalidate_yahoo_session()
                 continue
-            exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
-            exp_timestamps.append(exp_ts)
+            else:
+                logger.error(traceback.format_exc())
+                return jsonify({"error": str(e)}), 502
 
-            try:
-                chain = ticker.option_chain(exp_str)
-            except Exception as e:
-                logger.warning(f"Failed to get chain for {exp_str}: {e}")
-                continue
-
-            call_list = []
-            for _, row in chain.calls.iterrows():
-                call_list.append({
-                    "strike": float(row["strike"]),
-                    "bid": float(row.get("bid", 0) or 0),
-                    "ask": float(row.get("ask", 0) or 0),
-                    "volume": int(row.get("volume", 0) or 0),
-                    "openInterest": int(row.get("openInterest", 0) or 0),
-                    "impliedVolatility": float(row.get("impliedVolatility", 0) or 0),
-                    "expiration": exp_ts,
-                })
-            all_options.append({"expirationDate": exp_ts, "calls": call_list})
-
-        result = {
-            "source": "yfinance",
-            "optionChain": {
-                "result": [{
-                    "quote": {"regularMarketPrice": stock_price},
-                    "expirationDates": exp_timestamps,
-                    "options": all_options,
-                }]
-            }
-        }
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Yahoo options error for {symbol}: {e}\n{traceback.format_exc()}")
-        return jsonify({"error": str(e)}), 502
+    return jsonify({"error": "All attempts failed"}), 502
 
 
 if __name__ == "__main__":
