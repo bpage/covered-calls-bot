@@ -1,16 +1,18 @@
 from flask import Flask, jsonify, request, send_file
 from datetime import datetime, timedelta
-import requests as http_requests
+import math
 
 try:
     import robin_stocks.robinhood as r
 except ImportError:
     r = None
 
-app = Flask(__name__)
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
-YAHOO_BASE = "https://query2.finance.yahoo.com/v7/finance/options/"
-YAHOO_HEADERS = {"User-Agent": "Mozilla/5.0"}
+app = Flask(__name__)
 
 
 @app.route("/")
@@ -143,15 +145,54 @@ def get_options(symbol):
 
 @app.route("/api/yahoo/options/<symbol>")
 def yahoo_options(symbol):
-    """Proxy Yahoo Finance options data server-side (no CORS issues)."""
-    date_param = request.args.get("date", "")
-    url = YAHOO_BASE + symbol.upper()
-    if date_param:
-        url += "?date=" + date_param
+    """Fetch options data via yfinance library."""
+    if not yf:
+        return jsonify({"error": "yfinance not installed"}), 502
     try:
-        resp = http_requests.get(url, headers=YAHOO_HEADERS, timeout=10)
-        resp.raise_for_status()
-        return jsonify(resp.json())
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.fast_info
+        stock_price = float(info.last_price)
+
+        expirations = ticker.options  # list of date strings
+        today = datetime.now().date()
+        now_ts = datetime.now().timestamp()
+
+        # Build response matching the format the frontend expects
+        exp_timestamps = []
+        all_options = []
+        for exp_str in expirations:
+            exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+            dte = (exp_date - today).days
+            if dte < 20 or dte > 60:
+                continue
+            exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
+            exp_timestamps.append(exp_ts)
+
+            chain = ticker.option_chain(exp_str)
+            calls = chain.calls
+            call_list = []
+            for _, row in calls.iterrows():
+                call_list.append({
+                    "strike": float(row["strike"]),
+                    "bid": float(row.get("bid", 0) or 0),
+                    "ask": float(row.get("ask", 0) or 0),
+                    "volume": int(row.get("volume", 0) or 0),
+                    "openInterest": int(row.get("openInterest", 0) or 0),
+                    "impliedVolatility": float(row.get("impliedVolatility", 0) or 0),
+                    "expiration": exp_ts,
+                })
+            all_options.append({"expirationDate": exp_ts, "calls": call_list})
+
+        result = {
+            "optionChain": {
+                "result": [{
+                    "quote": {"regularMarketPrice": stock_price},
+                    "expirationDates": exp_timestamps,
+                    "options": all_options,
+                }]
+            }
+        }
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
