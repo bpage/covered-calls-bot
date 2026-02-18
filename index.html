@@ -570,9 +570,9 @@
             loginStatus.className = "status-msg " + type;
         }
 
-        function updateBadge() {
+        function updateBadge(source) {
             if (isLiveData) {
-                dataBadge.textContent = "LIVE — YAHOO FINANCE";
+                dataBadge.textContent = "LIVE — " + (source || "YAHOO FINANCE").toUpperCase();
                 dataBadge.className = "data-source-badge badge-live";
             } else {
                 dataBadge.textContent = "SAMPLE DATA";
@@ -705,10 +705,11 @@
                     currentTicker = symbol;
                     isLiveData = true;
                     selectedIndex = null;
-                    updateBadge();
+                    const source = data.source === "robinhood" ? "Robinhood" : "Yahoo Finance";
+                    updateBadge(source);
                     renderTable();
                     updateProjections();
-                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
+                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + source + ".", "success");
                 } else {
                     throw new Error("No options matched 10-30 delta range for " + symbol);
                 }
