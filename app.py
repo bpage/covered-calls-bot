@@ -2,6 +2,11 @@ from flask import Flask, jsonify, request, send_file
 from datetime import datetime, timedelta
 import os
 import math
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 try:
     import yfinance as yf
@@ -9,6 +14,45 @@ except ImportError:
     yf = None
 
 app = Flask(__name__)
+
+
+def get_stock_price(ticker):
+    """Try multiple methods to get a reliable stock price."""
+    errors = []
+
+    # Method 1: fast_info.last_price
+    try:
+        price = float(ticker.fast_info.last_price)
+        if price > 0:
+            logger.info(f"Got price via fast_info: {price}")
+            return price
+    except Exception as e:
+        errors.append(f"fast_info: {e}")
+
+    # Method 2: info dict
+    try:
+        info = ticker.info
+        for key in ["regularMarketPrice", "currentPrice", "previousClose"]:
+            if key in info and info[key]:
+                price = float(info[key])
+                if price > 0:
+                    logger.info(f"Got price via info[{key}]: {price}")
+                    return price
+    except Exception as e:
+        errors.append(f"info: {e}")
+
+    # Method 3: last close from history
+    try:
+        hist = ticker.history(period="5d")
+        if not hist.empty:
+            price = float(hist["Close"].iloc[-1])
+            if price > 0:
+                logger.info(f"Got price via history: {price}")
+                return price
+    except Exception as e:
+        errors.append(f"history: {e}")
+
+    raise ValueError(f"Could not get price. Tried: {'; '.join(errors)}")
 
 
 @app.route("/")
@@ -32,10 +76,25 @@ def yahoo_options(symbol):
 
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.fast_info
-        stock_price = float(info.last_price)
+        stock_price = get_stock_price(ticker)
+        logger.info(f"{symbol} price: {stock_price}")
 
-        expirations = ticker.options
+        try:
+            expirations = ticker.options
+        except Exception as e:
+            logger.error(f"Failed to get options expirations for {symbol}: {e}")
+            # Return price even if options fail
+            return jsonify({
+                "source": "yfinance",
+                "optionChain": {
+                    "result": [{
+                        "quote": {"regularMarketPrice": stock_price},
+                        "expirationDates": [],
+                        "options": [],
+                    }]
+                }
+            })
+
         exp_timestamps = []
         all_options = []
         for exp_str in expirations:
@@ -46,7 +105,12 @@ def yahoo_options(symbol):
             exp_ts = int(datetime.strptime(exp_str, "%Y-%m-%d").timestamp())
             exp_timestamps.append(exp_ts)
 
-            chain = ticker.option_chain(exp_str)
+            try:
+                chain = ticker.option_chain(exp_str)
+            except Exception as e:
+                logger.warning(f"Failed to get chain for {exp_str}: {e}")
+                continue
+
             call_list = []
             for _, row in chain.calls.iterrows():
                 call_list.append({
@@ -72,6 +136,7 @@ def yahoo_options(symbol):
         }
         return jsonify(result)
     except Exception as e:
+        logger.error(f"Yahoo options error for {symbol}: {e}\n{traceback.format_exc()}")
         return jsonify({"error": str(e)}), 502
 
 
