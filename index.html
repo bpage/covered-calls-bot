@@ -3,34 +3,926 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My First Project</title>
+    <title>Covered Call Income Estimator</title>
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-            color: #1c1e21;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header h1 {
+            font-size: 1.4rem;
+            color: #58a6ff;
+        }
+        header h1 span { color: #8b949e; font-weight: 400; }
+        .stock-badge {
+            background: #1f6feb;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+        .info-banner {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+        .input-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #c9d1d9;
+        }
+        .input-section .hint {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-bottom: 0.6rem;
+        }
+        .input-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .input-group { flex: 1; min-width: 180px; }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 1rem;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: #c9d1d9;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        thead th {
+            background: #1c2128;
+            padding: 0.65rem 0.8rem;
+            text-align: left;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            border-bottom: 1px solid #30363d;
+        }
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: #1c2128; }
+        tbody tr.selected { background: #1a3a5c; }
+        tbody td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #21262d;
+            white-space: nowrap;
+        }
+        .delta-cell { color: #58a6ff; font-weight: 600; }
+        .premium-cell { color: #3fb950; font-weight: 600; }
+        .strike-cell { font-weight: 600; }
+        .projections {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .projections.hidden { display: none; }
+        .proj-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 0.8rem;
+        }
+        .proj-card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem;
             text-align: center;
         }
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            shadow: 0 4px 12px rgba(0,0,0,0.1);
+        .proj-card .period {
+            font-size: 0.8rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
         }
-        h1 { color: #007AFF; }
+        .proj-card .amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3fb950;
+        }
+        .proj-card .detail {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-top: 0.3rem;
+        }
+        .proj-card .yield {
+            margin-top: 0.3rem;
+            font-size: 0.85rem;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+        .summary-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #21262d;
+        }
+        .summary-item {
+            flex: 1;
+            min-width: 140px;
+        }
+        .summary-item .label {
+            font-size: 0.75rem;
+            color: #8b949e;
+            text-transform: uppercase;
+        }
+        .summary-item .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+        .disclaimer {
+            font-size: 0.75rem;
+            color: #484f58;
+            margin-top: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary {
+            background: #238636;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-primary:disabled {
+            background: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+        .status-msg {
+            font-size: 0.85rem;
+            margin-top: 0.6rem;
+        }
+        .status-msg.success { color: #3fb950; }
+        .status-msg.error { color: #f85149; }
+        .status-msg.loading { color: #58a6ff; }
+        .data-source-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .badge-live {
+            background: #238636;
+            color: #fff;
+        }
+        .badge-sample {
+            background: #30363d;
+            color: #8b949e;
+        }
+        .badge-loading {
+            background: #1f6feb;
+            color: #fff;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .quick-tickers {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .quick-tickers span {
+            font-size: 0.8rem;
+            color: #8b949e;
+            align-self: center;
+            margin-right: 0.2rem;
+        }
+        .ticker-btn {
+            padding: 0.3rem 0.7rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .ticker-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        .ticker-btn.active {
+            background: #1f6feb;
+            border-color: #1f6feb;
+            color: #fff;
+        }
+        .fetch-bar {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 600px) {
+            header { padding: 0.8rem 1rem; }
+            .proj-grid { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Hello World!</h1>
-        <p>This is my first project on GitHub.</p>
-        <p>Ready for voice editing with Claude.</p>
+    <header>
+        <h1>Covered Call <span>Income Estimator</span></h1>
+        <div class="stock-badge" id="headerBadge">MSTR</div>
+    </header>
+
+    <div class="container">
+        <div class="status-msg" id="loginStatus"></div>
+
+        <div class="info-banner">
+            Type any stock ticker to automatically load its price and call options from <strong>Yahoo Finance</strong> (delayed ~15 min), or click a quick pick below. Showing <strong>20–60 DTE</strong>, <strong>10–30 delta</strong>. Select an option to see income projections.
+        </div>
+
+        <div class="input-section">
+            <div class="input-row">
+                <div class="input-group" style="flex:0.6; min-width:120px;">
+                    <label for="ticker">Ticker</label>
+                    <div class="hint">Stock symbol</div>
+                    <input type="text" id="ticker" value="MSTR" placeholder="e.g. AAPL" style="text-transform:uppercase;">
+                </div>
+                <div class="input-group">
+                    <label for="shares">Shares Owned</label>
+                    <div class="hint">Each contract covers 100 shares</div>
+                    <input type="number" id="shares" min="100" step="100" value="100" placeholder="e.g. 500">
+                </div>
+                <div class="input-group">
+                    <label for="stockPrice">Stock Price ($)</label>
+                    <div class="hint">Auto-filled on fetch</div>
+                    <input type="number" id="stockPrice" min="1" step="0.01" value="133.88">
+                </div>
+                <div class="input-group">
+                    <label for="cycleLength">Option Cycle (days)</label>
+                    <div class="hint">How often you'd sell a new call</div>
+                    <select id="cycleLength">
+                        <option value="30">30 days</option>
+                        <option value="35" selected>35 days</option>
+                        <option value="40">40 days</option>
+                        <option value="45">45 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-tickers" id="quickTickers">
+            <span>Quick pick:</span>
+            <button class="ticker-btn active" onclick="selectTicker('MSTR')">MSTR</button>
+            <button class="ticker-btn" onclick="selectTicker('AAPL')">AAPL</button>
+            <button class="ticker-btn" onclick="selectTicker('TSLA')">TSLA</button>
+            <button class="ticker-btn" onclick="selectTicker('NVDA')">NVDA</button>
+            <button class="ticker-btn" onclick="selectTicker('AMZN')">AMZN</button>
+            <button class="ticker-btn" onclick="selectTicker('MSFT')">MSFT</button>
+            <button class="ticker-btn" onclick="selectTicker('META')">META</button>
+            <button class="ticker-btn" onclick="selectTicker('GOOGL')">GOOGL</button>
+            <button class="ticker-btn" onclick="selectTicker('SPY')">SPY</button>
+            <button class="ticker-btn" onclick="selectTicker('QQQ')">QQQ</button>
+        </div>
+
+        <div class="fetch-bar">
+            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 20-60 DTE, Delta 10–30</h2>
+            <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
+            <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Fetch Options</button>
+        </div>
+        <div class="table-wrap">
+            <table id="optionTable">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Strike</th>
+                        <th>Exp Date</th>
+                        <th>DTE</th>
+                        <th>Delta</th>
+                        <th>Bid</th>
+                        <th>Ask</th>
+                        <th>Mid</th>
+                        <th>Open Int</th>
+                        <th>Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="optionBody"></tbody>
+            </table>
+        </div>
+
+        <div class="projections hidden" id="projections">
+            <h2>Income Projections</h2>
+            <div class="summary-row" id="summaryRow"></div>
+            <div class="proj-grid" id="projGrid"></div>
+        </div>
+
+        <p class="disclaimer">
+            Option prices from Yahoo Finance (delayed ~15 min). Falls back to sample data if unavailable.
+            This is not financial advice. Premiums, stock prices, and market conditions change constantly.
+            Covered calls cap your upside if the stock rises above the strike price.
+        </p>
     </div>
+
+    <script>
+        // ── Sample fallback data per ticker ──
+        // Realistic sample options for popular tickers (10-30 delta, 20-60 DTE)
+        const sampleDataByTicker = {
+            MSTR: {
+                price: 133.88,
+                options: [
+                    { strike: 145, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 9.80, ask: 10.60, oi: 3820, vol: 1240 },
+                    { strike: 150, exp: "2026-03-20", dte: 31, delta: 0.25, bid: 7.90, ask: 8.50, oi: 4650, vol: 980 },
+                    { strike: 160, exp: "2026-03-20", dte: 31, delta: 0.19, bid: 5.20, ask: 5.70, oi: 3410, vol: 810 },
+                    { strike: 170, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 3.30, ask: 3.80, oi: 5280, vol: 1520 },
+                    { strike: 180, exp: "2026-03-20", dte: 31, delta: 0.11, bid: 2.10, ask: 2.50, oi: 2940, vol: 640 },
+                    { strike: 190, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.40, ask: 1.70, oi: 2180, vol: 420 },
+                    { strike: 145, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 11.50, ask: 12.30, oi: 2950, vol: 870 },
+                    { strike: 150, exp: "2026-03-27", dte: 38, delta: 0.27, bid: 9.40, ask: 10.10, oi: 3780, vol: 750 },
+                    { strike: 160, exp: "2026-03-27", dte: 38, delta: 0.21, bid: 6.40, ask: 7.00, oi: 4120, vol: 1080 },
+                    { strike: 170, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 4.20, ask: 4.70, oi: 2560, vol: 490 },
+                    { strike: 180, exp: "2026-03-27", dte: 38, delta: 0.12, bid: 2.70, ask: 3.10, oi: 1840, vol: 310 },
+                ],
+            },
+            TSLA: {
+                price: 417.44,
+                options: [
+                    { strike: 440, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 16.80, ask: 17.60, oi: 12450, vol: 4820 },
+                    { strike: 450, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 13.20, ask: 13.90, oi: 9870, vol: 3650 },
+                    { strike: 460, exp: "2026-03-20", dte: 31, delta: 0.20, bid: 10.10, ask: 10.70, oi: 15320, vol: 5240 },
+                    { strike: 470, exp: "2026-03-20", dte: 31, delta: 0.17, bid: 7.50, ask: 8.10, oi: 8940, vol: 2870 },
+                    { strike: 480, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 5.40, ask: 5.90, oi: 11280, vol: 3190 },
+                    { strike: 500, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 2.80, ask: 3.20, oi: 7650, vol: 1840 },
+                    { strike: 440, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 19.50, ask: 20.30, oi: 8930, vol: 3410 },
+                    { strike: 460, exp: "2026-03-27", dte: 38, delta: 0.22, bid: 12.60, ask: 13.30, oi: 11540, vol: 4120 },
+                    { strike: 470, exp: "2026-03-27", dte: 38, delta: 0.19, bid: 9.70, ask: 10.30, oi: 6820, vol: 2150 },
+                    { strike: 480, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 7.20, ask: 7.80, oi: 9370, vol: 2680 },
+                    { strike: 500, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 3.80, ask: 4.30, oi: 5140, vol: 1320 },
+                ],
+            },
+            AAPL: {
+                price: 255.78,
+                options: [
+                    { strike: 265, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 4.20, ask: 4.50, oi: 18920, vol: 6740 },
+                    { strike: 270, exp: "2026-03-20", dte: 31, delta: 0.22, bid: 2.95, ask: 3.20, oi: 14350, vol: 4890 },
+                    { strike: 275, exp: "2026-03-20", dte: 31, delta: 0.17, bid: 2.00, ask: 2.20, oi: 22480, vol: 7120 },
+                    { strike: 280, exp: "2026-03-20", dte: 31, delta: 0.13, bid: 1.30, ask: 1.50, oi: 11670, vol: 3210 },
+                    { strike: 285, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 0.82, ask: 0.98, oi: 15890, vol: 4560 },
+                    { strike: 265, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 5.30, ask: 5.60, oi: 13450, vol: 4870 },
+                    { strike: 270, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 3.90, ask: 4.15, oi: 10280, vol: 3540 },
+                    { strike: 275, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 2.75, ask: 2.95, oi: 17640, vol: 5630 },
+                    { strike: 280, exp: "2026-03-27", dte: 38, delta: 0.16, bid: 1.90, ask: 2.10, oi: 8940, vol: 2470 },
+                    { strike: 285, exp: "2026-03-27", dte: 38, delta: 0.12, bid: 1.25, ask: 1.45, oi: 12310, vol: 3180 },
+                ],
+            },
+            SPY: {
+                price: 681.75,
+                options: [
+                    { strike: 695, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 8.40, ask: 8.80, oi: 42150, vol: 18640 },
+                    { strike: 700, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 6.60, ask: 6.90, oi: 35480, vol: 14320 },
+                    { strike: 710, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 4.10, ask: 4.40, oi: 51230, vol: 21560 },
+                    { strike: 720, exp: "2026-03-20", dte: 31, delta: 0.13, bid: 2.40, ask: 2.65, oi: 28940, vol: 10870 },
+                    { strike: 730, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.35, ask: 1.55, oi: 19650, vol: 7240 },
+                    { strike: 695, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 10.10, ask: 10.50, oi: 31820, vol: 13450 },
+                    { strike: 710, exp: "2026-03-27", dte: 38, delta: 0.21, bid: 5.80, ask: 6.15, oi: 38670, vol: 15890 },
+                    { strike: 720, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 3.50, ask: 3.80, oi: 22540, vol: 8760 },
+                    { strike: 730, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 2.00, ask: 2.25, oi: 15380, vol: 5430 },
+                ],
+            },
+            NVDA: {
+                price: 182.78,
+                options: [
+                    { strike: 190, exp: "2026-03-20", dte: 31, delta: 0.29, bid: 6.80, ask: 7.10, oi: 28450, vol: 11240 },
+                    { strike: 195, exp: "2026-03-20", dte: 31, delta: 0.23, bid: 4.90, ask: 5.20, oi: 35670, vol: 14520 },
+                    { strike: 200, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 3.40, ask: 3.65, oi: 22340, vol: 8760 },
+                    { strike: 205, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 2.30, ask: 2.55, oi: 18920, vol: 6340 },
+                    { strike: 210, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.50, ask: 1.70, oi: 14580, vol: 4870 },
+                    { strike: 190, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 8.20, ask: 8.55, oi: 21340, vol: 8640 },
+                    { strike: 195, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 6.10, ask: 6.40, oi: 27890, vol: 10950 },
+                    { strike: 200, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 4.40, ask: 4.65, oi: 18560, vol: 7120 },
+                    { strike: 205, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 3.10, ask: 3.35, oi: 14230, vol: 5280 },
+                    { strike: 210, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 2.10, ask: 2.35, oi: 10870, vol: 3640 },
+                ],
+            },
+            AMZN: {
+                price: 198.79,
+                options: [
+                    { strike: 205, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 4.60, ask: 4.90, oi: 15640, vol: 5870 },
+                    { strike: 210, exp: "2026-03-20", dte: 31, delta: 0.23, bid: 3.20, ask: 3.45, oi: 12380, vol: 4230 },
+                    { strike: 215, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 2.15, ask: 2.35, oi: 18920, vol: 6140 },
+                    { strike: 220, exp: "2026-03-20", dte: 31, delta: 0.14, bid: 1.40, ask: 1.60, oi: 9870, vol: 3120 },
+                    { strike: 225, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 0.85, ask: 1.05, oi: 7540, vol: 2180 },
+                    { strike: 205, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 5.70, ask: 6.00, oi: 11450, vol: 4320 },
+                    { strike: 210, exp: "2026-03-27", dte: 38, delta: 0.25, bid: 4.10, ask: 4.35, oi: 9680, vol: 3450 },
+                    { strike: 215, exp: "2026-03-27", dte: 38, delta: 0.20, bid: 2.90, ask: 3.10, oi: 14560, vol: 4870 },
+                    { strike: 220, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 1.95, ask: 2.15, oi: 7890, vol: 2640 },
+                    { strike: 225, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 1.25, ask: 1.45, oi: 5670, vol: 1820 },
+                ],
+            },
+            QQQ: {
+                price: 601.92,
+                options: [
+                    { strike: 615, exp: "2026-03-20", dte: 31, delta: 0.28, bid: 8.80, ask: 9.20, oi: 24560, vol: 9870 },
+                    { strike: 620, exp: "2026-03-20", dte: 31, delta: 0.24, bid: 7.00, ask: 7.35, oi: 19340, vol: 7650 },
+                    { strike: 630, exp: "2026-03-20", dte: 31, delta: 0.18, bid: 4.30, ask: 4.60, oi: 31280, vol: 12340 },
+                    { strike: 640, exp: "2026-03-20", dte: 31, delta: 0.13, bid: 2.50, ask: 2.75, oi: 16540, vol: 5890 },
+                    { strike: 650, exp: "2026-03-20", dte: 31, delta: 0.10, bid: 1.40, ask: 1.60, oi: 11230, vol: 3870 },
+                    { strike: 615, exp: "2026-03-27", dte: 38, delta: 0.30, bid: 10.60, ask: 11.00, oi: 18940, vol: 7560 },
+                    { strike: 630, exp: "2026-03-27", dte: 38, delta: 0.21, bid: 5.80, ask: 6.15, oi: 24670, vol: 9340 },
+                    { strike: 640, exp: "2026-03-27", dte: 38, delta: 0.15, bid: 3.60, ask: 3.90, oi: 13280, vol: 4870 },
+                    { strike: 650, exp: "2026-03-27", dte: 38, delta: 0.11, bid: 2.10, ask: 2.40, oi: 9450, vol: 3120 },
+                ],
+            },
+        };
+
+        // Default sample for unknown tickers: generate from price estimate
+        function generateSampleOptions(symbol, estimatedPrice) {
+            const price = estimatedPrice || 100;
+            const options = [];
+            const exp1 = "2026-03-20", exp2 = "2026-03-27";
+            const deltas = [0.29, 0.24, 0.20, 0.16, 0.12, 0.10];
+            const iv = price > 500 ? 0.18 : price > 200 ? 0.25 : price > 100 ? 0.35 : 0.45;
+
+            for (const [i, delta] of deltas.entries()) {
+                const otmPct = 1 + (0.03 + i * 0.025) * (iv / 0.30);
+                const strike = Math.round(price * otmPct / 5) * 5 || Math.ceil(price * otmPct);
+                const timeVal = price * iv * Math.sqrt(31 / 365) * delta * 1.8;
+                const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
+                options.push({ strike, exp: exp1, dte: 31, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(2000 + Math.random() * 8000), vol: Math.floor(400 + Math.random() * 3000) });
+            }
+            for (const [i, delta] of [0.30, 0.25, 0.19, 0.14, 0.10].entries()) {
+                const otmPct = 1 + (0.03 + i * 0.03) * (iv / 0.30);
+                const strike = Math.round(price * otmPct / 5) * 5 || Math.ceil(price * otmPct);
+                const timeVal = price * iv * Math.sqrt(38 / 365) * delta * 1.8;
+                const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
+                options.push({ strike, exp: exp2, dte: 38, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(1500 + Math.random() * 6000), vol: Math.floor(300 + Math.random() * 2000) });
+            }
+            return options;
+        }
+
+        function getSampleData(symbol) {
+            const upper = symbol.toUpperCase();
+            if (sampleDataByTicker[upper]) return sampleDataByTicker[upper];
+            // Generate reasonable data for unknown tickers
+            return { price: 100, options: generateSampleOptions(upper, 100) };
+        }
+
+        // ── State ──
+        const defaultSample = getSampleData("MSTR");
+        let currentOptions = [...defaultSample.options];
+        let selectedIndex = null;
+        let isLiveData = false;
+        let currentTicker = "MSTR";
+
+        // ── DOM refs ──
+        const tickerInput = document.getElementById("ticker");
+        const sharesInput = document.getElementById("shares");
+        const stockPriceInput = document.getElementById("stockPrice");
+        const cycleLengthSelect = document.getElementById("cycleLength");
+        const optionBody = document.getElementById("optionBody");
+        const projectionsDiv = document.getElementById("projections");
+        const summaryRow = document.getElementById("summaryRow");
+        const projGrid = document.getElementById("projGrid");
+        const loginStatus = document.getElementById("loginStatus");
+        const fetchBtn = document.getElementById("fetchBtn");
+        const dataBadge = document.getElementById("dataBadge");
+        const headerBadge = document.getElementById("headerBadge");
+        const tableHeading = document.getElementById("tableHeading");
+
+        function formatCurrency(n) {
+            return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function setStatus(msg, type) {
+            loginStatus.textContent = msg;
+            loginStatus.className = "status-msg " + type;
+        }
+
+        function updateBadge() {
+            if (isLiveData) {
+                dataBadge.textContent = "LIVE — YAHOO FINANCE";
+                dataBadge.className = "data-source-badge badge-live";
+            } else {
+                dataBadge.textContent = "SAMPLE DATA";
+                dataBadge.className = "data-source-badge badge-sample";
+            }
+        }
+
+        // ── Black-Scholes Delta (for Yahoo Finance data) ──
+        function erfApprox(x) {
+            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+            const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+            const sign = x < 0 ? -1 : 1;
+            x = Math.abs(x);
+            const t = 1.0 / (1.0 + p * x);
+            const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            return sign * y;
+        }
+
+        function bsCallDelta(S, K, T, r, sigma) {
+            if (T <= 0 || sigma <= 0 || S <= 0 || K <= 0) return 0;
+            const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+            return 0.5 * (1.0 + erfApprox(d1 / Math.sqrt(2.0)));
+        }
+
+        // ── Fetch helpers ──
+        async function fetchJSON(url, timeoutMs) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs || 12000);
+            try {
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return await res.json();
+            } catch (e) {
+                clearTimeout(timer);
+                throw e;
+            }
+        }
+
+        async function yahooFetch(symbol, dateParam) {
+            const qs = dateParam ? "?date=" + dateParam : "";
+            const yahooUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + qs;
+
+            // Try 1: Flask backend proxy (works when running python app.py)
+            try {
+                const backendPath = "/api/yahoo/options/" + symbol + qs;
+                const data = await fetchJSON(backendPath, 6000);
+                if (data && !data.error && data.optionChain) return data;
+            } catch (e) { /* backend unavailable */ }
+
+            // Try 2: CORS proxies — fast 6s timeout, bail early
+            const proxies = [
+                { name: "corsproxy.io", fn: u => "https://corsproxy.io/?" + encodeURIComponent(u) },
+                { name: "allorigins", fn: u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
+                { name: "codetabs", fn: u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) },
+            ];
+
+            for (const proxy of proxies) {
+                try {
+                    setStatus("Trying " + proxy.name + "...", "loading");
+                    const data = await fetchJSON(proxy.fn(yahooUrl), 6000);
+                    if (data && data.optionChain) return data;
+                } catch (e) { continue; }
+            }
+
+            return null;
+        }
+
+        // ── Main data fetch ──
+        async function fetchFreeData() {
+            const symbol = tickerInput.value.trim().toUpperCase();
+            if (!symbol) {
+                setStatus("Enter a ticker symbol.", "error");
+                return;
+            }
+
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = "Loading...";
+            dataBadge.textContent = "LOADING...";
+            dataBadge.className = "data-source-badge badge-loading";
+
+            try {
+                // Step 1: Get stock price + expiration dates + first chain
+                const data = await yahooFetch(symbol);
+                if (!data || !data.optionChain || !data.optionChain.result || !data.optionChain.result[0]) {
+                    throw new Error("No data returned for " + symbol);
+                }
+
+                const result = data.optionChain.result[0];
+                const stockPrice = result.quote && result.quote.regularMarketPrice;
+                if (!stockPrice) throw new Error("No stock price returned for " + symbol);
+
+                // Update price immediately
+                stockPriceInput.value = stockPrice.toFixed(2);
+                headerBadge.textContent = symbol;
+
+                const expirationDates = result.expirationDates || [];
+                const nowSec = Date.now() / 1000;
+
+                // Filter to 20-60 DTE range
+                const validExps = expirationDates.filter(e => {
+                    const dte = (e - nowSec) / 86400;
+                    return dte >= 20 && dte <= 60;
+                }).slice(0, 3);
+
+                const allOptions = [];
+
+                // Process calls from initial response
+                if (result.options && result.options[0] && result.options[0].calls) {
+                    processCalls(result.options[0].calls, stockPrice, nowSec, allOptions);
+                }
+
+                // Fetch additional expirations (skip the one already loaded)
+                const firstExp = result.options && result.options[0] && result.options[0].expirationDate;
+                const remaining = validExps.filter(e => e !== firstExp);
+
+                for (const expTs of remaining) {
+                    const chainData = await yahooFetch(symbol, expTs);
+                    if (chainData && chainData.optionChain && chainData.optionChain.result
+                        && chainData.optionChain.result[0] && chainData.optionChain.result[0].options
+                        && chainData.optionChain.result[0].options[0]) {
+                        processCalls(chainData.optionChain.result[0].options[0].calls || [], stockPrice, nowSec, allOptions);
+                    }
+                }
+
+                if (allOptions.length > 0) {
+                    allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || a.strike - b.strike);
+                    currentOptions = allOptions;
+                    currentTicker = symbol;
+                    isLiveData = true;
+                    selectedIndex = null;
+                    updateBadge();
+                    renderTable();
+                    updateProjections();
+                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
+                } else {
+                    throw new Error("No options matched 10-30 delta range for " + symbol);
+                }
+            } catch (e) {
+                // Fall back to ticker-specific sample data
+                const sample = getSampleData(symbol);
+                currentOptions = [...sample.options];
+                currentTicker = symbol;
+                stockPriceInput.value = sample.price.toFixed(2);
+                headerBadge.textContent = symbol;
+                isLiveData = false;
+                selectedIndex = null;
+                updateBadge();
+                renderTable();
+                updateProjections();
+                const knownTicker = sampleDataByTicker[symbol] ? "" : " (generic estimate)";
+                setStatus("API unavailable — showing " + symbol + " sample data" + knownTicker + ". Run Flask for live data.", "error");
+            }
+
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = "Fetch Options";
+        }
+
+        function processCalls(calls, stockPrice, nowSec, optionsArr) {
+            for (const c of calls) {
+                const strike = c.strike;
+                if (!strike || strike <= stockPrice) continue; // OTM only
+
+                const expTs = c.expiration;
+                const dte = Math.round((expTs - nowSec) / 86400);
+                if (dte < 20 || dte > 60) continue;
+
+                const iv = c.impliedVolatility || 0;
+                if (iv <= 0) continue;
+
+                const T = dte / 365;
+                const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
+
+                if (delta >= 0.10 && delta <= 0.30) {
+                    const expDate = new Date(expTs * 1000);
+                    const y = expDate.getUTCFullYear();
+                    const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
+                    const d = String(expDate.getUTCDate()).padStart(2, "0");
+
+                    optionsArr.push({
+                        strike: strike,
+                        exp: y + "-" + m + "-" + d,
+                        dte: dte,
+                        delta: Math.round(delta * 100) / 100,
+                        bid: c.bid || 0,
+                        ask: c.ask || 0,
+                        oi: c.openInterest || 0,
+                        vol: c.volume || 0,
+                    });
+                }
+            }
+        }
+
+        // ── Refresh button handler ──
+        async function refreshData() {
+            await fetchFreeData();
+        }
+
+        // ── Table Rendering ──
+        function renderTable() {
+            optionBody.innerHTML = "";
+            currentOptions.forEach((opt, i) => {
+                const mid = (opt.bid + opt.ask) / 2;
+                const row = document.createElement("tr");
+                if (i === selectedIndex) row.classList.add("selected");
+                row.innerHTML = `
+                    <td><input type="radio" name="optSel" ${i === selectedIndex ? "checked" : ""}></td>
+                    <td class="strike-cell">${formatCurrency(opt.strike)}</td>
+                    <td>${opt.exp}</td>
+                    <td>${opt.dte}d</td>
+                    <td class="delta-cell">${opt.delta.toFixed(2)}</td>
+                    <td>${formatCurrency(opt.bid)}</td>
+                    <td>${formatCurrency(opt.ask)}</td>
+                    <td class="premium-cell">${formatCurrency(mid)}</td>
+                    <td>${opt.oi.toLocaleString()}</td>
+                    <td>${opt.vol.toLocaleString()}</td>
+                `;
+                row.addEventListener("click", () => selectOption(i));
+                optionBody.appendChild(row);
+            });
+        }
+
+        function selectOption(i) {
+            selectedIndex = i;
+            renderTable();
+            updateProjections();
+        }
+
+        // ── Income Projections ──
+        function updateProjections() {
+            if (selectedIndex === null) {
+                projectionsDiv.classList.add("hidden");
+                return;
+            }
+
+            const shares = parseInt(sharesInput.value) || 0;
+            const stockPrice = parseFloat(stockPriceInput.value) || 0;
+            const cycleDays = parseInt(cycleLengthSelect.value);
+            const opt = currentOptions[selectedIndex];
+            const mid = (opt.bid + opt.ask) / 2;
+            const contracts = Math.floor(shares / 100);
+
+            if (contracts < 1 || stockPrice <= 0) {
+                projectionsDiv.classList.add("hidden");
+                return;
+            }
+
+            const premiumPerCycle = mid * 100 * contracts;
+            const positionValue = stockPrice * shares;
+
+            const periods = [
+                { label: "1 Month", days: 30 },
+                { label: "2 Months", days: 60 },
+                { label: "3 Months", days: 90 },
+                { label: "6 Months", days: 180 },
+                { label: "9 Months", days: 270 },
+                { label: "1 Year", days: 365 },
+            ];
+
+            summaryRow.innerHTML = `
+                <div class="summary-item">
+                    <div class="label">Contracts</div>
+                    <div class="value">${contracts}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Strike</div>
+                    <div class="value">${formatCurrency(opt.strike)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Delta</div>
+                    <div class="value">${opt.delta.toFixed(2)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Mid Premium</div>
+                    <div class="value">${formatCurrency(mid)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Premium / Cycle</div>
+                    <div class="value">${formatCurrency(premiumPerCycle)}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Position Value</div>
+                    <div class="value">${formatCurrency(positionValue)}</div>
+                </div>
+            `;
+
+            projGrid.innerHTML = "";
+            periods.forEach(p => {
+                const cycles = p.days / cycleDays;
+                const totalIncome = premiumPerCycle * cycles;
+                const annualizedYield = (totalIncome / positionValue) * (365 / p.days) * 100;
+                const yieldForPeriod = (totalIncome / positionValue) * 100;
+
+                const card = document.createElement("div");
+                card.className = "proj-card";
+                card.innerHTML = `
+                    <div class="period">${p.label}</div>
+                    <div class="amount">${formatCurrency(totalIncome)}</div>
+                    <div class="detail">${cycles.toFixed(1)} cycles</div>
+                    <div class="yield">${yieldForPeriod.toFixed(1)}% return · ${annualizedYield.toFixed(1)}% ann.</div>
+                `;
+                projGrid.appendChild(card);
+            });
+
+            projectionsDiv.classList.remove("hidden");
+        }
+
+        // ── Auto-fetch on ticker change (debounced) ──
+        let tickerDebounce = null;
+
+        tickerInput.addEventListener("input", () => {
+            clearTimeout(tickerDebounce);
+            const symbol = tickerInput.value.trim().toUpperCase();
+            if (symbol.length < 1 || symbol.length > 5) return;
+            // Update quick-pick button highlighting
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === symbol);
+            });
+            tickerDebounce = setTimeout(() => {
+                // Auto-fetch price + options via backend
+                refreshData();
+            }, 600);
+        });
+
+        // ── Quick ticker buttons ──
+        function selectTicker(symbol) {
+            tickerInput.value = symbol;
+            // Highlight active button
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === symbol);
+            });
+            // Clear debounce and fetch immediately
+            clearTimeout(tickerDebounce);
+            stockPriceInput.value = "";
+            stockPriceInput.placeholder = "Loading...";
+            refreshData();
+        }
+
+        // ── Event listeners ──
+        sharesInput.addEventListener("input", updateProjections);
+        stockPriceInput.addEventListener("input", updateProjections);
+        cycleLengthSelect.addEventListener("change", updateProjections);
+        tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
+
+        // ── Initial render ──
+        stockPriceInput.value = defaultSample.price.toFixed(2);
+        updateBadge();
+        renderTable();
+        updateProjections();
+        fetchFreeData();
+    </script>
 </body>
 </html>
