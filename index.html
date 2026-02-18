@@ -40,89 +40,6 @@
             align-items: center;
             gap: 0.6rem;
         }
-        .login-btn {
-            padding: 0.35rem 0.8rem;
-            background: #238636;
-            border: none;
-            border-radius: 6px;
-            color: #fff;
-            font-size: 0.82rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .login-btn:hover { background: #2ea043; }
-        .login-btn.logout { background: #da3633; }
-        .login-btn.logout:hover { background: #f85149; }
-        .logged-in-label {
-            font-size: 0.8rem;
-            color: #3fb950;
-            font-weight: 600;
-        }
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-overlay.open { display: flex; }
-        .modal {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 1.5rem;
-            width: 90%;
-            max-width: 380px;
-        }
-        .modal h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #e6edf3;
-        }
-        .modal label {
-            display: block;
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #c9d1d9;
-            margin-bottom: 0.25rem;
-        }
-        .modal input[type="text"], .modal input[type="password"] {
-            width: 100%;
-            padding: 0.5rem 0.7rem;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            color: #e6edf3;
-            font-size: 0.9rem;
-            margin-bottom: 0.8rem;
-        }
-        .modal input:focus { outline: none; border-color: #58a6ff; }
-        .modal .hint { font-size: 0.75rem; color: #8b949e; margin-bottom: 0.8rem; margin-top: -0.4rem; }
-        .modal-btns {
-            display: flex;
-            gap: 0.6rem;
-            margin-top: 0.5rem;
-        }
-        .modal-btns .btn { flex: 1; }
-        .btn-cancel {
-            padding: 0.6rem 1.2rem;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            background: transparent;
-            color: #c9d1d9;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .btn-cancel:hover { background: #21262d; }
-        .modal .error-msg {
-            color: #f85149;
-            font-size: 0.82rem;
-            margin-bottom: 0.5rem;
-            display: none;
-        }
         .container {
             max-width: 960px;
             margin: 0 auto;
@@ -394,35 +311,14 @@
         <h1>Covered Call <span>Income Estimator</span></h1>
         <div class="header-right">
             <div class="stock-badge" id="headerBadge">MSTR</div>
-            <span class="logged-in-label" id="loggedInLabel" style="display:none;">Robinhood</span>
-            <button class="login-btn" id="loginBtn" onclick="openLoginModal()">Log In</button>
         </div>
     </header>
-
-    <!-- Login Modal -->
-    <div class="modal-overlay" id="loginModal">
-        <div class="modal">
-            <h3>Log in to Robinhood</h3>
-            <div class="error-msg" id="loginError"></div>
-            <label for="rhEmail">Email</label>
-            <input type="text" id="rhEmail" placeholder="your@email.com" autocomplete="email">
-            <label for="rhPassword">Password</label>
-            <input type="password" id="rhPassword" placeholder="Password" autocomplete="current-password">
-            <label for="rhTotp">TOTP Private Key</label>
-            <input type="password" id="rhTotp" placeholder="Your MFA private key">
-            <div class="hint">The app generates the MFA code from your key automatically.</div>
-            <div class="modal-btns">
-                <button class="btn-cancel" onclick="closeLoginModal()">Cancel</button>
-                <button class="btn btn-primary" id="loginSubmitBtn" onclick="submitLogin()">Log In</button>
-            </div>
-        </div>
-    </div>
 
     <div class="container">
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            Type any stock ticker to load its price and call options. Log in with <strong>Robinhood</strong> for real-time data, or use <strong>Yahoo Finance</strong> as fallback. Showing <strong>20-60 DTE</strong>, <strong>10-30 delta</strong>. Select an option to see income projections.
+            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>20-60 DTE</strong>, <strong>10-30 delta</strong>. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -501,7 +397,7 @@
         </div>
 
         <p class="disclaimer">
-            Log in with Robinhood for real-time data. Falls back to Yahoo Finance (delayed ~15 min) or sample data.
+            Live data from Yahoo Finance (may be delayed ~15 min). Falls back to sample data if unavailable.
             This is not financial advice. Premiums, stock prices, and market conditions change constantly.
             Covered calls cap your upside if the stock rises above the strike price.
         </p>
@@ -681,9 +577,9 @@
             loginStatus.className = "status-msg " + type;
         }
 
-        function updateBadge(source) {
+        function updateBadge() {
             if (isLiveData) {
-                dataBadge.textContent = "LIVE — " + (source || "YAHOO FINANCE").toUpperCase();
+                dataBadge.textContent = "LIVE — YAHOO FINANCE";
                 dataBadge.className = "data-source-badge badge-live";
             } else {
                 dataBadge.textContent = "SAMPLE DATA";
@@ -816,11 +712,10 @@
                     currentTicker = symbol;
                     isLiveData = true;
                     selectedIndex = null;
-                    const source = data.source === "robinhood" ? "Robinhood" : "Yahoo Finance";
-                    updateBadge(source);
+                    updateBadge();
                     renderTable();
                     updateProjections();
-                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + source + ".", "success");
+                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
                 } else {
                     throw new Error("No options matched 10-30 delta range for " + symbol);
                 }
@@ -1030,110 +925,11 @@
         cycleLengthSelect.addEventListener("change", updateProjections);
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
-        // ── Login / Logout ──
-        const loginBtn = document.getElementById("loginBtn");
-        const loggedInLabel = document.getElementById("loggedInLabel");
-        const loginModal = document.getElementById("loginModal");
-        const loginError = document.getElementById("loginError");
-        const loginSubmitBtn = document.getElementById("loginSubmitBtn");
-
-        function openLoginModal() {
-            loginError.style.display = "none";
-            loginModal.classList.add("open");
-            document.getElementById("rhEmail").focus();
-        }
-
-        function closeLoginModal() {
-            loginModal.classList.remove("open");
-        }
-
-        // Close modal on overlay click
-        loginModal.addEventListener("click", e => {
-            if (e.target === loginModal) closeLoginModal();
-        });
-
-        function setLoggedIn(loggedIn) {
-            if (loggedIn) {
-                loginBtn.textContent = "Log Out";
-                loginBtn.className = "login-btn logout";
-                loginBtn.onclick = doLogout;
-                loggedInLabel.style.display = "inline";
-            } else {
-                loginBtn.textContent = "Log In";
-                loginBtn.className = "login-btn";
-                loginBtn.onclick = openLoginModal;
-                loggedInLabel.style.display = "none";
-            }
-        }
-
-        async function submitLogin() {
-            const email = document.getElementById("rhEmail").value.trim();
-            const password = document.getElementById("rhPassword").value;
-            const totpKey = document.getElementById("rhTotp").value.trim();
-
-            if (!email || !password) {
-                loginError.textContent = "Email and password are required.";
-                loginError.style.display = "block";
-                return;
-            }
-
-            loginSubmitBtn.disabled = true;
-            loginSubmitBtn.textContent = "Logging in...";
-            loginError.style.display = "none";
-
-            try {
-                const res = await fetch("/api/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password, totp_key: totpKey || undefined }),
-                });
-                const data = await res.json();
-                if (data.success) {
-                    setLoggedIn(true);
-                    closeLoginModal();
-                    setStatus("Robinhood login successful. Fetching live data...", "success");
-                    // Clear form
-                    document.getElementById("rhEmail").value = "";
-                    document.getElementById("rhPassword").value = "";
-                    document.getElementById("rhTotp").value = "";
-                    // Refresh data with live Robinhood prices
-                    refreshData();
-                } else {
-                    loginError.textContent = data.error || "Login failed.";
-                    loginError.style.display = "block";
-                }
-            } catch (e) {
-                loginError.textContent = "Could not reach server.";
-                loginError.style.display = "block";
-            }
-
-            loginSubmitBtn.disabled = false;
-            loginSubmitBtn.textContent = "Log In";
-        }
-
-        async function doLogout() {
-            try {
-                await fetch("/api/logout", { method: "POST" });
-            } catch (e) { /* ignore */ }
-            setLoggedIn(false);
-            setStatus("Logged out.", "");
-        }
-
-        // Check if already logged in on page load
-        async function checkLoginStatus() {
-            try {
-                const res = await fetch("/api/status");
-                const data = await res.json();
-                if (data.logged_in) setLoggedIn(true);
-            } catch (e) { /* server not reachable, fine */ }
-        }
-
         // ── Initial render ──
         stockPriceInput.value = defaultSample.price.toFixed(2);
         updateBadge();
         renderTable();
         updateProjections();
-        checkLoginStatus();
         fetchFreeData();
     </script>
 </body>
