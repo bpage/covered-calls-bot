@@ -44,18 +44,32 @@ def index():
     return send_file("index.html")
 
 
+@app.route("/api/status")
+def status():
+    return jsonify({"logged_in": rh_logged_in})
+
+
 @app.route("/api/login", methods=["POST"])
 def login():
+    global rh_logged_in
+    if not r:
+        return jsonify({"success": False, "error": "robin_stocks not installed"}), 500
+
     data = request.json
     email = data.get("email", "")
     password = data.get("password", "")
     mfa_code = data.get("mfa_code")
+    totp_key = data.get("totp_key")
 
     try:
         kwargs = {}
-        if mfa_code:
+        if totp_key and pyotp:
+            totp = pyotp.TOTP(totp_key)
+            kwargs["mfa_code"] = totp.now()
+        elif mfa_code:
             kwargs["mfa_code"] = mfa_code
         r.login(email, password, **kwargs)
+        rh_logged_in = True
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 401
@@ -286,11 +300,13 @@ def yahoo_options(symbol):
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
+    global rh_logged_in
     try:
         if r:
             r.logout()
     except Exception:
         pass
+    rh_logged_in = False
     return jsonify({"success": True})
 
 
