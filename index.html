@@ -783,12 +783,12 @@
 
                 const expTs = c.expiration;
                 const dte = Math.round((expTs - nowSec) / 86400);
-                if (dte < 20 || dte > 60) continue;
+                                if (dte < 5 || dte > 90) continue;
 
                 const iv = c.impliedVolatility || 0;
 
                 const T = dte / 365;
-                const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
+                const delta = (c.delta != null) ? Math.abs(c.delta) : bsCallDelta(stockPrice, strike, T, 0.05, iv);
 
                 const dMin = parseFloat(deltaMinSelect.value);
                 const dMax = parseFloat(deltaMaxSelect.value);
