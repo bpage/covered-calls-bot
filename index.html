@@ -318,7 +318,7 @@
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>20-60 DTE</strong> filtered by your delta range. Select an option to see income projections.
+            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>5-90 DTE</strong> OTM calls. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -346,27 +346,6 @@
                         <option value="35" selected>35 days</option>
                         <option value="40">40 days</option>
                         <option value="45">45 days</option>
-                    </select>
-                </div>
-                <div class="input-group" style="flex:0.5; min-width:100px;">
-                    <label for="deltaMin">Min Delta</label>
-                    <div class="hint">Lower bound</div>
-                    <select id="deltaMin">
-                        <option value="0.05">5</option>
-                        <option value="0.10" selected>10</option>
-                        <option value="0.15">15</option>
-                        <option value="0.20">20</option>
-                    </select>
-                </div>
-                <div class="input-group" style="flex:0.5; min-width:100px;">
-                    <label for="deltaMax">Max Delta</label>
-                    <div class="hint">Upper bound</div>
-                    <select id="deltaMax">
-                        <option value="0.20">20</option>
-                        <option value="0.25">25</option>
-                        <option value="0.30" selected>30</option>
-                        <option value="0.35">35</option>
-                        <option value="0.40">40</option>
                     </select>
                 </div>
             </div>
@@ -623,8 +602,6 @@
         const sharesInput = document.getElementById("shares");
         const stockPriceInput = document.getElementById("stockPrice");
         const cycleLengthSelect = document.getElementById("cycleLength");
-        const deltaMinSelect = document.getElementById("deltaMin");
-        const deltaMaxSelect = document.getElementById("deltaMax");
         const optionBody = document.getElementById("optionBody");
         const projectionsDiv = document.getElementById("projections");
         const summaryRow = document.getElementById("summaryRow");
@@ -782,9 +759,7 @@
                     dataBadge.className = "data-source-badge badge-live";
                     renderTable();
                     updateProjections();
-                    const dMinVal = Math.round(parseFloat(deltaMinSelect.value) * 100);
-                    const dMaxVal = Math.round(parseFloat(deltaMaxSelect.value) * 100);
-                    setStatus("Live price $" + stockPrice.toFixed(2) + " for " + symbol + ". Options generated from estimates (none matched " + dMinVal + "-" + dMaxVal + " delta range).", "success");
+                    setStatus("Live price $" + stockPrice.toFixed(2) + " for " + symbol + ". Options generated from estimates (no OTM calls found).", "success");
                 }
             } catch (e) {
                 // Fall back to ticker-specific sample data
@@ -825,25 +800,21 @@
                 const T = dte / 365;
                 const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
 
-                const dMin = parseFloat(deltaMinSelect.value);
-                const dMax = parseFloat(deltaMaxSelect.value);
-                if (delta >= dMin && delta <= dMax) {
-                    const expDate = new Date(expTs * 1000);
-                    const y = expDate.getUTCFullYear();
-                    const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
-                    const d = String(expDate.getUTCDate()).padStart(2, "0");
+                const expDate = new Date(expTs * 1000);
+                const y = expDate.getUTCFullYear();
+                const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
+                const d = String(expDate.getUTCDate()).padStart(2, "0");
 
-                    optionsArr.push({
-                        strike: strike,
-                        exp: y + "-" + m + "-" + d,
-                        dte: dte,
-                        delta: Math.round(delta * 100) / 100,
-                        bid: c.bid || 0,
-                        ask: c.ask || 0,
-                        oi: c.openInterest || 0,
-                        vol: c.volume || 0,
-                    });
-                }
+                optionsArr.push({
+                    strike: strike,
+                    exp: y + "-" + m + "-" + d,
+                    dte: dte,
+                    delta: Math.round(delta * 100) / 100,
+                    bid: c.bid || 0,
+                    ask: c.ask || 0,
+                    oi: c.openInterest || 0,
+                    vol: c.volume || 0,
+                });
             }
         }
 
@@ -1048,8 +1019,6 @@
         sharesInput.addEventListener("input", updateProjections);
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
-        deltaMinSelect.addEventListener("change", refreshData);
-        deltaMaxSelect.addEventListener("change", refreshData);
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
         // ── Initial render ──
