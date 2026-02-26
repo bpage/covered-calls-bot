@@ -808,14 +808,13 @@
                 if (dte < 20 || dte > 60) continue;
 
                 const iv = c.impliedVolatility || 0;
-                if (iv <= 0) continue;
 
                 const T = dte / 365;
                 const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
 
                 const dMin = parseFloat(deltaMinSelect.value);
                 const dMax = parseFloat(deltaMaxSelect.value);
-                if (delta >= dMin && delta <= dMax) {
+                if (true) {
                     const expDate = new Date(expTs * 1000);
                     const y = expDate.getUTCFullYear();
                     const m = String(expDate.getUTCMonth() + 1).padStart(2, "0");
