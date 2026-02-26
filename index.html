@@ -773,19 +773,7 @@
                     updateProjections();
                     setStatus("Loaded " + allOptions.length + " " + symbol + " options from Yahoo Finance.", "success");
                 } else {
-                    // Got a live price but no options matched delta range — generate sample options at live price
-                    currentOptions = generateSampleOptions(symbol, stockPrice);
-                    currentTicker = symbol;
-                    isLiveData = false;
-                    selectedIndex = 0;
-                    dataBadge.textContent = "LIVE PRICE — SAMPLE OPTIONS";
-                    dataBadge.className = "data-source-badge badge-live";
-                    renderTable();
-                    updateProjections();
-                    const dMinVal = Math.round(parseFloat(deltaMinSelect.value) * 100);
-                    const dMaxVal = Math.round(parseFloat(deltaMaxSelect.value) * 100);
-                    setStatus("Live price $" + stockPrice.toFixed(2) + " for " + symbol + ". Options generated from estimates (none matched " + dMinVal + "-" + dMaxVal + " delta range).", "success");
-                }
+            setStatus("No options found in your delta range for " + symbol + ". Try widening Min/Max Delta.", "error");                }
             } catch (e) {
                 // Fall back to ticker-specific sample data
                 const sample = getSampleData(symbol);
