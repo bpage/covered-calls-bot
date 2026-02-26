@@ -174,15 +174,15 @@ def api_yahoo_options(symbol):
             exp_dates = result.get("expirationDates", [])
             now_sec = datetime.now().timestamp()
 
-            # Filter options in first response to 20-60 DTE
+            # Filter options in first response to 5-90 DTE
             first_options = result.get("options", [])
 
-            # Fetch additional expiration dates in 20-60 DTE range
-            valid_exps = [e for e in exp_dates if 20 <= (e - now_sec) / 86400 <= 60]
+            # Fetch additional expiration dates in 5-90 DTE range
+            valid_exps = [e for e in exp_dates if 5 <= (e - now_sec) / 86400 <= 90]
             first_exp = first_options[0].get("expirationDate") if first_options else None
 
             all_options = list(first_options)
-            for exp_ts in valid_exps[:3]:
+            for exp_ts in valid_exps[:8]:
                 if exp_ts == first_exp:
                     continue
                 try:
@@ -194,7 +194,7 @@ def api_yahoo_options(symbol):
                     logger.warning(f"Failed fetching expiration {exp_ts}: {e}")
 
             # Filter exp_timestamps to valid range
-            exp_timestamps = [e for e in exp_dates if 20 <= (e - now_sec) / 86400 <= 60]
+            exp_timestamps = [e for e in exp_dates if 5 <= (e - now_sec) / 86400 <= 90]
 
             return jsonify({
                 "source": "yahoo_direct",

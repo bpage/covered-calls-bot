@@ -367,7 +367,7 @@
         </div>
 
         <div class="fetch-bar">
-            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 20-60 DTE</h2>
+            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 5-90 DTE</h2>
             <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
             <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Fetch Options</button>
         </div>
@@ -713,11 +713,11 @@
                 const expirationDates = result.expirationDates || [];
                 const nowSec = Date.now() / 1000;
 
-                // Filter to 20-60 DTE range
+                // Filter to 5-90 DTE range
                 const validExps = expirationDates.filter(e => {
                     const dte = (e - nowSec) / 86400;
-                    return dte >= 20 && dte <= 60;
-                }).slice(0, 3);
+                    return dte >= 5 && dte <= 90;
+                }).slice(0, 8);
 
                 const allOptions = [];
 
@@ -792,7 +792,7 @@
 
                 const expTs = c.expiration;
                 const dte = Math.round((expTs - nowSec) / 86400);
-                if (dte < 20 || dte > 60) continue;
+                if (dte < 5 || dte > 90) continue;
 
                 const iv = c.impliedVolatility || 0;
                 if (iv <= 0) continue;
