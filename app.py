@@ -74,13 +74,13 @@ def api_yahoo_options(symbol):
                 }
             })
 
-        # Filter to 5-90 DTE
+        # Filter to 30-90 DTE
         now = datetime.now()
         valid_exps = []
         for exp_str in exp_dates:
             exp_date = datetime.strptime(exp_str, "%Y-%m-%d")
             dte = (exp_date - now).days
-            if 5 <= dte <= 90:
+            if 30 <= dte <= 90:
                 valid_exps.append(exp_str)
 
         logger.info(f"{symbol}: {len(valid_exps)} expirations in 5-90 DTE range out of {len(exp_dates)} total")

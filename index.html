@@ -318,7 +318,7 @@
         <div class="status-msg" id="loginStatus"></div>
 
         <div class="info-banner">
-            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>5-90 DTE</strong> OTM calls. Select an option to see income projections.
+            Type any stock ticker to load its price and call options from <strong>Yahoo Finance</strong>. Showing <strong>30-90 DTE</strong> OTM calls. Select an option to see income projections.
         </div>
 
         <div class="input-section">
@@ -367,7 +367,7 @@
         </div>
 
         <div class="fetch-bar">
-            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 5-90 DTE</h2>
+            <h2 style="margin-bottom:0;" id="tableHeading">Call Options — 30-90 DTE</h2>
             <span class="data-source-badge badge-sample" id="dataBadge">SAMPLE DATA</span>
             <button class="btn btn-primary" id="fetchBtn" onclick="refreshData()" style="margin-left:auto;">Fetch Options</button>
         </div>
@@ -777,13 +777,14 @@
 
                 const expTs = c.expiration;
                 const dte = Math.round((expTs - nowSec) / 86400);
-                if (dte < 5 || dte > 90) continue;
+                if (dte < 30 || dte > 90) continue;
 
                 const iv = c.impliedVolatility || 0;
                 if (iv <= 0) continue;
 
                 const T = dte / 365;
                 const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
+                if (delta < 0.05) continue;
 
                 const expDate = new Date(expTs * 1000);
                 const y = expDate.getUTCFullYear();
