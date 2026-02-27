@@ -122,7 +122,7 @@ def status():
 def api_yahoo_options(symbol):
     """Fetch stock price + options data from Yahoo Finance via direct HTTP."""
     symbol = symbol.upper()
-    today = datetime.now().date()
+    date_param = request.args.get("date")
 
     # Try with cached session first, retry with fresh session on failure
     for attempt in range(2):
@@ -133,12 +133,44 @@ def api_yahoo_options(symbol):
             stock_price = yahoo_chart(symbol, session, crumb)
             logger.info(f"{symbol} price: ${stock_price:.2f} (attempt {attempt + 1})")
 
-            # Get options chain
+            # If a specific date was requested, fetch just that expiration
+            if date_param:
+                try:
+                    options_data = yahoo_options(symbol, session, crumb, date=int(date_param))
+                except Exception as e:
+                    logger.warning(f"Options fetch for date {date_param} failed: {e}")
+                    return jsonify({
+                        "source": "yahoo_direct",
+                        "optionChain": {
+                            "result": [{
+                                "quote": {"regularMarketPrice": stock_price},
+                                "expirationDates": [],
+                                "options": [],
+                            }]
+                        }
+                    })
+
+                oc = options_data.get("optionChain", {})
+                results = oc.get("result", [])
+                single_options = results[0].get("options", []) if results else []
+                logger.info(f"{symbol} date={date_param}: {len(single_options)} option chains returned")
+
+                return jsonify({
+                    "source": "yahoo_direct",
+                    "optionChain": {
+                        "result": [{
+                            "quote": {"regularMarketPrice": stock_price},
+                            "expirationDates": [],
+                            "options": single_options,
+                        }]
+                    }
+                })
+
+            # No date param — fetch all expirations in 5-90 DTE range
             try:
                 options_data = yahoo_options(symbol, session, crumb)
             except Exception as e:
                 logger.warning(f"Options fetch failed for {symbol}: {e}")
-                # Return price even if options fail
                 return jsonify({
                     "source": "yahoo_direct",
                     "optionChain": {
@@ -153,6 +185,7 @@ def api_yahoo_options(symbol):
             oc = options_data.get("optionChain", {})
             results = oc.get("result", [])
             if not results:
+                logger.warning(f"{symbol}: Yahoo returned no optionChain results")
                 return jsonify({
                     "source": "yahoo_direct",
                     "optionChain": {
@@ -174,12 +207,16 @@ def api_yahoo_options(symbol):
             exp_dates = result.get("expirationDates", [])
             now_sec = datetime.now().timestamp()
 
-            # Filter options in first response to 5-90 DTE
             first_options = result.get("options", [])
+            first_calls_count = len(first_options[0].get("calls", [])) if first_options else 0
+            logger.info(f"{symbol}: initial response has {len(first_options)} option chains, "
+                        f"{first_calls_count} calls in first chain, "
+                        f"{len(exp_dates)} total expiration dates")
 
             # Fetch additional expiration dates in 5-90 DTE range
             valid_exps = [e for e in exp_dates if 5 <= (e - now_sec) / 86400 <= 90]
             first_exp = first_options[0].get("expirationDate") if first_options else None
+            logger.info(f"{symbol}: {len(valid_exps)} expirations in 5-90 DTE range")
 
             all_options = list(first_options)
             for exp_ts in valid_exps[:8]:
@@ -190,11 +227,16 @@ def api_yahoo_options(symbol):
                     more_result = more.get("optionChain", {}).get("result", [{}])[0]
                     more_opts = more_result.get("options", [])
                     all_options.extend(more_opts)
+                    calls_count = len(more_opts[0].get("calls", [])) if more_opts else 0
+                    logger.info(f"{symbol}: exp {exp_ts} returned {calls_count} calls")
                 except Exception as e:
                     logger.warning(f"Failed fetching expiration {exp_ts}: {e}")
 
             # Filter exp_timestamps to valid range
             exp_timestamps = [e for e in exp_dates if 5 <= (e - now_sec) / 86400 <= 90]
+
+            total_calls = sum(len(o.get("calls", [])) for o in all_options)
+            logger.info(f"{symbol}: returning {len(all_options)} option chains with {total_calls} total calls")
 
             return jsonify({
                 "source": "yahoo_direct",

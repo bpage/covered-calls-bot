@@ -710,34 +710,19 @@
                 stockPriceInput.value = stockPrice.toFixed(2);
                 headerBadge.textContent = symbol;
 
-                const expirationDates = result.expirationDates || [];
                 const nowSec = Date.now() / 1000;
-
-                // Filter to 5-90 DTE range
-                const validExps = expirationDates.filter(e => {
-                    const dte = (e - nowSec) / 86400;
-                    return dte >= 5 && dte <= 90;
-                }).slice(0, 8);
-
                 const allOptions = [];
 
-                // Process calls from initial response
-                if (result.options && result.options[0] && result.options[0].calls) {
-                    processCalls(result.options[0].calls, stockPrice, nowSec, allOptions);
-                }
-
-                // Fetch additional expirations (skip the one already loaded)
-                const firstExp = result.options && result.options[0] && result.options[0].expirationDate;
-                const remaining = validExps.filter(e => e !== firstExp);
-
-                for (const expTs of remaining) {
-                    const chainData = await yahooFetch(symbol, expTs);
-                    if (chainData && chainData.optionChain && chainData.optionChain.result
-                        && chainData.optionChain.result[0] && chainData.optionChain.result[0].options
-                        && chainData.optionChain.result[0].options[0]) {
-                        processCalls(chainData.optionChain.result[0].options[0].calls || [], stockPrice, nowSec, allOptions);
+                // Process calls from ALL option chains returned by backend
+                // Backend already fetches multiple expirations, so iterate all of them
+                if (result.options && result.options.length > 0) {
+                    for (const optChain of result.options) {
+                        if (optChain.calls && optChain.calls.length > 0) {
+                            processCalls(optChain.calls, stockPrice, nowSec, allOptions);
+                        }
                     }
                 }
+                console.log("Processed " + (result.options ? result.options.length : 0) + " option chains, " + allOptions.length + " valid calls");
 
                 if (allOptions.length > 0) {
                     allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || a.strike - b.strike);
