@@ -784,7 +784,7 @@
 
                 const T = dte / 365;
                 const delta = bsCallDelta(stockPrice, strike, T, 0.05, iv);
-                if (delta < 0.05) continue;
+                if (delta < 0.10) continue;
 
                 const expDate = new Date(expTs * 1000);
                 const y = expDate.getUTCFullYear();
