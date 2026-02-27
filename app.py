@@ -80,10 +80,10 @@ def api_yahoo_options(symbol):
         for exp_str in exp_dates:
             exp_date = datetime.strptime(exp_str, "%Y-%m-%d")
             dte = (exp_date - now).days
-            if 30 <= dte <= 90:
+            if 25 <= dte <= 90:
                 valid_exps.append(exp_str)
 
-        logger.info(f"{symbol}: {len(valid_exps)} expirations in 5-90 DTE range out of {len(exp_dates)} total")
+        logger.info(f"{symbol}: {len(valid_exps)} expirations in 25-90 DTE range out of {len(exp_dates)} total")
 
         # Fetch option chains for each valid expiration
         all_options = []
