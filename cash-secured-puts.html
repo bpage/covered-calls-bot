@@ -532,6 +532,7 @@
         let currentOptions = [...defaultSample.options];
         let selectedIndex = null;
         let isLiveData = false;
+        let dataSource = "sample";
         let currentTicker = "MSTR";
 
         // ── DOM refs ──
@@ -560,7 +561,8 @@
 
         function updateBadge() {
             if (isLiveData) {
-                dataBadge.textContent = "LIVE — YAHOO FINANCE";
+                const label = dataSource === "alpaca" ? "LIVE — ALPACA" : "LIVE — YAHOO FINANCE";
+                dataBadge.textContent = label;
                 dataBadge.className = "data-source-badge badge-live";
             } else {
                 dataBadge.textContent = "SAMPLE DATA";
@@ -643,6 +645,8 @@
                 const stockPrice = result.quote && result.quote.regularMarketPrice;
                 if (!stockPrice) throw new Error("No stock price returned for " + symbol);
 
+                dataSource = data.source || "yfinance";
+
                 stockPriceInput.value = stockPrice.toFixed(2);
                 headerBadge.textContent = symbol;
 
@@ -657,7 +661,7 @@
                         }
                     }
                 }
-                console.log("Processed " + (result.options ? result.options.length : 0) + " option chains, " + allOptions.length + " valid puts");
+                console.log("Source: " + dataSource + ", processed " + (result.options ? result.options.length : 0) + " option chains, " + allOptions.length + " valid puts");
 
                 if (allOptions.length > 0) {
                     allOptions.sort((a, b) => a.exp.localeCompare(b.exp) || b.strike - a.strike);
@@ -668,7 +672,8 @@
                     updateBadge();
                     renderTable();
                     updateProjections();
-                    setStatus("Loaded " + allOptions.length + " " + symbol + " put options from Yahoo Finance.", "success");
+                    const srcLabel = dataSource === "alpaca" ? "Alpaca" : "Yahoo Finance";
+                    setStatus("Loaded " + allOptions.length + " " + symbol + " put options from " + srcLabel + ".", "success");
                 } else {
                     currentOptions = generateSamplePuts(symbol, stockPrice);
                     currentTicker = symbol;
@@ -712,11 +717,16 @@
                 const dte = Math.round((expTs - nowSec) / 86400);
                 if (dte < 25 || dte > 90) continue;
 
-                const iv = p.impliedVolatility || 0;
-                if (iv <= 0) continue;
-
-                const T = dte / 365;
-                const delta = bsPutDelta(stockPrice, strike, T, 0.05, iv);
+                // Use Alpaca delta if available, otherwise calculate via Black-Scholes
+                let delta;
+                if (p.delta !== undefined && p.delta !== 0) {
+                    delta = p.delta;
+                } else {
+                    const iv = p.impliedVolatility || 0;
+                    if (iv <= 0) continue;
+                    const T = dte / 365;
+                    delta = bsPutDelta(stockPrice, strike, T, 0.05, iv);
+                }
                 if (delta > -0.10) continue; // filter out very low delta puts (close to 0)
 
                 const expDate = new Date(expTs * 1000);
