@@ -191,9 +191,33 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
     }
 
 
+
+# Curated high-IV watchlist — stocks known for elevated implied volatility
+# Covers: crypto-adjacent, meme stocks, biotech, energy/solar, high-growth tech, EV, fintech
+HIGH_IV_WATCHLIST = [
+    # Crypto / Bitcoin proxy
+    "MSTR", "COIN", "RIOT", "MARA", "HUT", "BITF", "CLSK",
+    # Meme / retail favorites
+    "GME", "AMC", "BBBY", "HOOD", "SOFI", "LCID", "RIVN",
+    # High-growth tech / volatile
+    "SMCI", "PLTR", "SNOW", "CRWD", "NET", "DKNG", "ROKU", "SNAP", "SQ", "SHOP",
+    "ARM", "IONQ", "RGTI", "QUBT",
+    # Energy / solar / hydrogen
+    "BE", "PLUG", "FSLR", "ENPH", "RUN", "SEDG",
+    # Biotech / pharma
+    "MRNA", "BNTX", "NVAX",
+    # EV
+    "TSLA", "NIO", "XPEV", "LI",
+    # Large cap tech (high options volume)
+    "NVDA", "AMD", "AAPL", "AMZN", "META", "GOOGL", "MSFT", "NFLX",
+    # ETFs
+    "SPY", "QQQ", "IWM", "ARKK", "XBI",
+]
+
+
 @app.route("/api/active-tickers")
 def api_active_tickers():
-    """Get most active stock tickers from Alpaca screener, filtered for options-friendly stocks."""
+    """Get most active stock tickers from Alpaca screener, merged with high-IV watchlist."""
     if not ALPACA_API_KEY:
         return jsonify({"error": "Alpaca API not configured"}), 503
 
@@ -203,24 +227,33 @@ def api_active_tickers():
         resp.raise_for_status()
         data = resp.json()
 
-        tickers = []
+        active_tickers = []
         for item in data.get("most_actives", []):
             sym = item.get("symbol", "")
-            # Skip warrants, units, and symbols with dots (like IRAB.WS)
             if not sym or "." in sym or len(sym) > 5:
                 continue
-            tickers.append(sym)
+            active_tickers.append(sym)
 
-        # Get snapshot prices to filter out penny stocks (< $10)
-        if tickers:
+        # Merge: active tickers + high-IV watchlist (deduplicated, preserving order)
+        seen = set()
+        merged = []
+        for sym in active_tickers + HIGH_IV_WATCHLIST:
+            if sym not in seen:
+                seen.add(sym)
+                merged.append(sym)
+
+        # Get snapshot prices to filter out penny stocks (< $15)
+        # Process in batches of 50
+        filtered = []
+        for i in range(0, len(merged), 50):
+            batch = merged[i:i+50]
             batch_url = f"{ALPACA_DATA_URL}/v2/stocks/snapshots"
             batch_resp = requests.get(batch_url, headers=_alpaca_headers(),
-                                     params={"symbols": ",".join(tickers[:50]), "feed": "iex"}, timeout=10)
+                                     params={"symbols": ",".join(batch), "feed": "iex"}, timeout=10)
             batch_resp.raise_for_status()
             prices = batch_resp.json()
 
-            filtered = []
-            for sym in tickers:
+            for sym in batch:
                 snap = prices.get(sym)
                 if not snap:
                     continue
@@ -231,17 +264,19 @@ def api_active_tickers():
                     price = snap["dailyBar"].get("c")
                 if price and price >= 15:
                     filtered.append(sym)
-                if len(filtered) >= 30:
-                    break
 
-            tickers = filtered
-
-        logger.info(f"Active tickers: {len(tickers)} found")
-        return jsonify({"tickers": tickers})
+        logger.info(f"Active tickers: {len(filtered)} found (active + watchlist)")
+        return jsonify({"tickers": filtered})
 
     except Exception as e:
         logger.error(f"Active tickers failed: {e}")
         return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/iv-watchlist")
+def api_iv_watchlist():
+    """Return the curated high-IV watchlist tickers."""
+    return jsonify({"tickers": HIGH_IV_WATCHLIST})
 
 
 @app.route("/api/iv-scan")

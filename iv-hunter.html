@@ -258,15 +258,17 @@
         <div class="info-banner">
             Scans tickers for the highest <strong>30-day implied volatility</strong> on near-ATM puts.
             Higher IV = higher premiums for selling cash-secured puts. Click a ticker to view its put options.
+            <strong>Scan Market</strong> combines today's most active stocks with a curated high-IV watchlist (crypto, meme, biotech, EV, energy).
         </div>
 
         <div class="controls">
             <div class="controls-row">
                 <div class="input-group">
                     <label for="tickerList">Tickers to Scan</label>
-                    <div class="hint">Comma-separated. Use "Scan Market" to auto-discover today's most active stocks.</div>
+                    <div class="hint">Comma-separated. "IV Watchlist" loads 50+ known high-IV stocks. "Scan Market" merges active stocks + watchlist.</div>
                     <input type="text" id="tickerList" value="MSTR, TSLA, NVDA, AAPL, AMZN, META, MSFT, GOOGL, SPY, QQQ, AMD, COIN, PLTR, SMCI, NFLX, SQ, SHOP, ROKU, SNAP, UBER">
                 </div>
+                <button class="btn btn-secondary" id="watchlistBtn" onclick="scanWatchlist()">IV Watchlist</button>
                 <button class="btn btn-secondary" id="marketBtn" onclick="scanMarket()">Scan Market</button>
                 <button class="btn btn-primary" id="scanBtn" onclick="runScan()">Scan IV</button>
             </div>
@@ -324,6 +326,33 @@
         function setStatus(msg, type) {
             statusMsg.textContent = msg;
             statusMsg.className = "status-msg " + type;
+        }
+
+        const watchlistBtn = document.getElementById("watchlistBtn");
+
+        async function scanWatchlist() {
+            watchlistBtn.disabled = true;
+            watchlistBtn.textContent = "Loading...";
+            setStatus("Loading high-IV watchlist...", "loading");
+
+            try {
+                const resp = await fetch("/api/iv-watchlist", { signal: AbortSignal.timeout(10000) });
+                if (!resp.ok) throw new Error("HTTP " + resp.status);
+                const data = await resp.json();
+                const tickers = data.tickers || [];
+                if (tickers.length === 0) {
+                    setStatus("No watchlist tickers found.", "error");
+                    return;
+                }
+                document.getElementById("tickerList").value = tickers.join(", ");
+                setStatus("Loaded " + tickers.length + " high-IV watchlist tickers. Scanning IV...", "success");
+                await runScan();
+            } catch (e) {
+                setStatus("Watchlist load failed: " + e.message, "error");
+            }
+
+            watchlistBtn.disabled = false;
+            watchlistBtn.textContent = "IV Watchlist";
         }
 
         async function scanMarket() {
