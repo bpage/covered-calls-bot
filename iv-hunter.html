@@ -121,11 +121,16 @@
             color: #fff;
         }
         .btn-primary:hover { background: #2ea043; }
-        .btn-primary:disabled {
+        .btn-primary:disabled, .btn-secondary:disabled {
             background: #21262d;
             color: #484f58;
             cursor: not-allowed;
         }
+        .btn-secondary {
+            background: #30363d;
+            color: #e6edf3;
+        }
+        .btn-secondary:hover { background: #3d444d; }
         .status-msg {
             font-size: 0.85rem;
             margin-top: 0.6rem;
@@ -259,9 +264,10 @@
             <div class="controls-row">
                 <div class="input-group">
                     <label for="tickerList">Tickers to Scan</label>
-                    <div class="hint">Comma-separated. Edit to add/remove tickers.</div>
+                    <div class="hint">Comma-separated. Use "Scan Market" to auto-discover today's most active stocks.</div>
                     <input type="text" id="tickerList" value="MSTR, TSLA, NVDA, AAPL, AMZN, META, MSFT, GOOGL, SPY, QQQ, AMD, COIN, PLTR, SMCI, NFLX, SQ, SHOP, ROKU, SNAP, UBER">
                 </div>
+                <button class="btn btn-secondary" id="marketBtn" onclick="scanMarket()">Scan Market</button>
                 <button class="btn btn-primary" id="scanBtn" onclick="runScan()">Scan IV</button>
             </div>
         </div>
@@ -305,6 +311,7 @@
         let sortAsc = false;
 
         const scanBtn = document.getElementById("scanBtn");
+        const marketBtn = document.getElementById("marketBtn");
         const statusMsg = document.getElementById("statusMsg");
         const ivBody = document.getElementById("ivBody");
         const progressBar = document.getElementById("progressBar");
@@ -317,6 +324,36 @@
         function setStatus(msg, type) {
             statusMsg.textContent = msg;
             statusMsg.className = "status-msg " + type;
+        }
+
+        async function scanMarket() {
+            marketBtn.disabled = true;
+            marketBtn.textContent = "Finding...";
+            setStatus("Discovering most active stocks...", "loading");
+
+            try {
+                const resp = await fetch("/api/active-tickers", { signal: AbortSignal.timeout(15000) });
+                if (!resp.ok) throw new Error("HTTP " + resp.status);
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+
+                const tickers = data.tickers || [];
+                if (tickers.length === 0) {
+                    setStatus("No active tickers found.", "error");
+                    return;
+                }
+
+                document.getElementById("tickerList").value = tickers.join(", ");
+                setStatus("Found " + tickers.length + " active stocks (>$15). Scanning IV...", "success");
+
+                // Auto-run IV scan
+                await runScan();
+            } catch (e) {
+                setStatus("Market scan failed: " + e.message, "error");
+            }
+
+            marketBtn.disabled = false;
+            marketBtn.textContent = "Scan Market";
         }
 
         async function runScan() {

@@ -191,6 +191,59 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
     }
 
 
+@app.route("/api/active-tickers")
+def api_active_tickers():
+    """Get most active stock tickers from Alpaca screener, filtered for options-friendly stocks."""
+    if not ALPACA_API_KEY:
+        return jsonify({"error": "Alpaca API not configured"}), 503
+
+    try:
+        url = f"{ALPACA_DATA_URL}/v1beta1/screener/stocks/most-actives"
+        resp = requests.get(url, headers=_alpaca_headers(), params={"by": "trades", "top": 100}, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        tickers = []
+        for item in data.get("most_actives", []):
+            sym = item.get("symbol", "")
+            # Skip warrants, units, and symbols with dots (like IRAB.WS)
+            if not sym or "." in sym or len(sym) > 5:
+                continue
+            tickers.append(sym)
+
+        # Get snapshot prices to filter out penny stocks (< $10)
+        if tickers:
+            batch_url = f"{ALPACA_DATA_URL}/v2/stocks/snapshots"
+            batch_resp = requests.get(batch_url, headers=_alpaca_headers(),
+                                     params={"symbols": ",".join(tickers[:50]), "feed": "iex"}, timeout=10)
+            batch_resp.raise_for_status()
+            prices = batch_resp.json()
+
+            filtered = []
+            for sym in tickers:
+                snap = prices.get(sym)
+                if not snap:
+                    continue
+                price = None
+                if snap.get("latestTrade"):
+                    price = snap["latestTrade"].get("p")
+                if not price and snap.get("dailyBar"):
+                    price = snap["dailyBar"].get("c")
+                if price and price >= 15:
+                    filtered.append(sym)
+                if len(filtered) >= 30:
+                    break
+
+            tickers = filtered
+
+        logger.info(f"Active tickers: {len(tickers)} found")
+        return jsonify({"tickers": tickers})
+
+    except Exception as e:
+        logger.error(f"Active tickers failed: {e}")
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/api/iv-scan")
 def api_iv_scan():
     """Scan multiple tickers for 30-day ATM implied volatility."""
@@ -199,8 +252,8 @@ def api_iv_scan():
         return jsonify({"error": "tickers parameter required"}), 400
 
     tickers = [t.strip().upper() for t in tickers_param.split(",") if t.strip()]
-    if len(tickers) > 30:
-        tickers = tickers[:30]
+    if len(tickers) > 50:
+        tickers = tickers[:50]
 
     if not ALPACA_API_KEY:
         return jsonify({"error": "Alpaca API not configured"}), 503
