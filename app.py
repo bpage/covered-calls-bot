@@ -32,6 +32,11 @@ def cash_secured_puts():
     return send_file("cash-secured-puts.html")
 
 
+@app.route("/iv-hunter")
+def iv_hunter():
+    return send_file("iv-hunter.html")
+
+
 @app.route("/api/status")
 def status():
     return jsonify({"status": "ok", "alpaca": bool(ALPACA_API_KEY)})
@@ -184,6 +189,115 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
             }]
         }
     }
+
+
+@app.route("/api/iv-scan")
+def api_iv_scan():
+    """Scan multiple tickers for 30-day ATM implied volatility."""
+    tickers_param = request.args.get("tickers", "")
+    if not tickers_param:
+        return jsonify({"error": "tickers parameter required"}), 400
+
+    tickers = [t.strip().upper() for t in tickers_param.split(",") if t.strip()]
+    if len(tickers) > 30:
+        tickers = tickers[:30]
+
+    if not ALPACA_API_KEY:
+        return jsonify({"error": "Alpaca API not configured"}), 503
+
+    results = []
+    now = datetime.now()
+    # Target ~30 DTE expiration window
+    exp_gte = (now + timedelta(days=20)).strftime("%Y-%m-%d")
+    exp_lte = (now + timedelta(days=45)).strftime("%Y-%m-%d")
+
+    for symbol in tickers:
+        try:
+            price = _alpaca_stock_price(symbol)
+            if not price:
+                continue
+
+            # Get puts near ATM (within ~10% of stock price)
+            strike_lo = price * 0.90
+            strike_hi = price * 1.02
+
+            params = {
+                "feed": "indicative",
+                "type": "put",
+                "expiration_date_gte": exp_gte,
+                "expiration_date_lte": exp_lte,
+                "strike_price_gte": f"{strike_lo:.0f}",
+                "strike_price_lte": f"{strike_hi:.0f}",
+                "limit": 50,
+            }
+            url = f"{ALPACA_DATA_URL}/v1beta1/options/snapshots/{symbol}"
+            resp = requests.get(url, headers=_alpaca_headers(), params=params, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            snapshots = data.get("snapshots", {})
+
+            if not snapshots:
+                continue
+
+            # Find the put closest to ATM with valid IV and ~30 DTE
+            best = None
+            best_distance = float("inf")
+            for occ_sym, snap in snapshots.items():
+                _, exp_date, _, strike = _parse_occ_symbol(occ_sym)
+                if not strike or not snap.get("impliedVolatility"):
+                    continue
+                iv = snap["impliedVolatility"]
+                if iv <= 0:
+                    continue
+                greeks = snap.get("greeks", {})
+                delta = greeks.get("delta", 0) or 0
+                quote = snap.get("latestQuote", {})
+                bid = quote.get("bp", 0) or 0
+                ask = quote.get("ap", 0) or 0
+                # Prefer puts with delta around -0.30 (slightly OTM, good for selling)
+                distance = abs(strike - price)
+                if distance < best_distance:
+                    best_distance = distance
+                    best = {
+                        "strike": strike,
+                        "expiration": exp_date,
+                        "iv": round(iv, 4),
+                        "delta": round(delta, 4),
+                        "bid": bid,
+                        "ask": ask,
+                        "mid": round((bid + ask) / 2, 2),
+                    }
+
+            if best:
+                premium_pct = round((best["mid"] / price) * 100, 2)
+                # Annualize: (premium / strike) * (365 / dte) * 100
+                exp_dt = datetime.strptime(best["expiration"], "%Y-%m-%d")
+                dte = (exp_dt - now).days
+                ann_yield = round((best["mid"] / best["strike"]) * (365 / max(dte, 1)) * 100, 1) if dte > 0 else 0
+
+                results.append({
+                    "symbol": symbol,
+                    "price": round(price, 2),
+                    "iv30": round(best["iv"] * 100, 1),
+                    "atmStrike": best["strike"],
+                    "expiration": best["expiration"],
+                    "dte": dte,
+                    "delta": best["delta"],
+                    "bid": best["bid"],
+                    "ask": best["ask"],
+                    "mid": best["mid"],
+                    "premiumPct": premium_pct,
+                    "annualizedYield": ann_yield,
+                })
+                logger.info(f"IV scan {symbol}: price=${price:.2f}, IV={best['iv']*100:.1f}%, mid=${best['mid']}")
+
+        except Exception as e:
+            logger.warning(f"IV scan failed for {symbol}: {e}")
+
+    # Sort by IV descending
+    results.sort(key=lambda x: x["iv30"], reverse=True)
+
+    return jsonify({"results": results})
 
 
 @app.route("/api/yahoo/options/<symbol>")

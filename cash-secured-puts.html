@@ -339,6 +339,7 @@
         <a href="/" class="nav-home">Options Income</a>
         <a href="/covered-calls">Covered Calls</a>
         <a href="/cash-secured-puts" class="active">Cash-Secured Puts</a>
+        <a href="/iv-hunter">IV Hunter</a>
     </nav>
     <header>
         <h1>Cash-Secured Put <span>Income Estimator</span></h1>
@@ -939,6 +940,16 @@
         stockPriceInput.addEventListener("input", updateProjections);
         cycleLengthSelect.addEventListener("change", updateProjections);
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
+
+        // ── Check if coming from IV Hunter ──
+        const ivHunterTicker = localStorage.getItem("ivHunterTicker");
+        if (ivHunterTicker) {
+            localStorage.removeItem("ivHunterTicker");
+            tickerInput.value = ivHunterTicker;
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === ivHunterTicker);
+            });
+        }
 
         // ── Initial render ──
         stockPriceInput.value = defaultSample.price.toFixed(2);

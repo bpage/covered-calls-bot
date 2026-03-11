@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IV Hunter — Options Income Tools</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        nav.top-nav {
+            background: #0d1117;
+            border-bottom: 1px solid #21262d;
+            padding: 0.5rem 2rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+        nav.top-nav a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.3rem 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        nav.top-nav a:hover { color: #e6edf3; }
+        nav.top-nav a.active {
+            color: #58a6ff;
+            border-bottom-color: #58a6ff;
+        }
+        nav.top-nav .nav-home {
+            color: #58a6ff;
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+        }
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header h1 {
+            font-size: 1.4rem;
+            color: #58a6ff;
+        }
+        header h1 span { color: #8b949e; font-weight: 400; }
+        .container {
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+        .info-banner {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+        .controls {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .controls label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #c9d1d9;
+        }
+        .controls .hint {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-bottom: 0.6rem;
+        }
+        .controls-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .controls-row .input-group { flex: 1; min-width: 250px; }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 1rem;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary {
+            background: #238636;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-primary:disabled {
+            background: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+        .status-msg {
+            font-size: 0.85rem;
+            margin-top: 0.6rem;
+        }
+        .status-msg.success { color: #3fb950; }
+        .status-msg.error { color: #f85149; }
+        .status-msg.loading { color: #58a6ff; }
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: #c9d1d9;
+        }
+        .fetch-bar {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        thead th {
+            background: #1c2128;
+            padding: 0.65rem 0.8rem;
+            text-align: left;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            border-bottom: 1px solid #30363d;
+            cursor: pointer;
+            user-select: none;
+        }
+        thead th:hover { color: #e6edf3; }
+        thead th.sorted { color: #58a6ff; }
+        tbody tr {
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: #1c2128; }
+        tbody td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #21262d;
+            white-space: nowrap;
+        }
+        .iv-cell { color: #f0883e; font-weight: 700; font-size: 1rem; }
+        .yield-cell { color: #3fb950; font-weight: 600; }
+        .premium-cell { color: #3fb950; font-weight: 600; }
+        .ticker-cell {
+            font-weight: 700;
+            color: #58a6ff;
+        }
+        .ticker-cell a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .ticker-cell a:hover { text-decoration: underline; }
+        .rank-cell {
+            color: #8b949e;
+            font-weight: 600;
+            text-align: center;
+        }
+        .iv-bar {
+            display: inline-block;
+            height: 6px;
+            border-radius: 3px;
+            background: #f0883e;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .disclaimer {
+            font-size: 0.75rem;
+            color: #484f58;
+            margin-top: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #21262d;
+            border-radius: 2px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        .progress-bar.hidden { display: none; }
+        .progress-fill {
+            height: 100%;
+            background: #58a6ff;
+            border-radius: 2px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        @media (max-width: 600px) {
+            header { padding: 0.8rem 1rem; }
+            nav.top-nav { padding: 0.5rem 1rem; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="/" class="nav-home">Options Income</a>
+        <a href="/covered-calls">Covered Calls</a>
+        <a href="/cash-secured-puts">Cash-Secured Puts</a>
+        <a href="/iv-hunter" class="active">IV Hunter</a>
+    </nav>
+    <header>
+        <h1>IV Hunter <span>— Find High Premium Puts</span></h1>
+    </header>
+
+    <div class="container">
+        <div class="status-msg" id="statusMsg"></div>
+
+        <div class="info-banner">
+            Scans tickers for the highest <strong>30-day implied volatility</strong> on near-ATM puts.
+            Higher IV = higher premiums for selling cash-secured puts. Click a ticker to view its put options.
+        </div>
+
+        <div class="controls">
+            <div class="controls-row">
+                <div class="input-group">
+                    <label for="tickerList">Tickers to Scan</label>
+                    <div class="hint">Comma-separated. Edit to add/remove tickers.</div>
+                    <input type="text" id="tickerList" value="MSTR, TSLA, NVDA, AAPL, AMZN, META, MSFT, GOOGL, SPY, QQQ, AMD, COIN, PLTR, SMCI, NFLX, SQ, SHOP, ROKU, SNAP, UBER">
+                </div>
+                <button class="btn btn-primary" id="scanBtn" onclick="runScan()">Scan IV</button>
+            </div>
+        </div>
+
+        <div class="progress-bar hidden" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="fetch-bar">
+            <h2 style="margin-bottom:0;" id="tableHeading">IV Rankings</h2>
+        </div>
+        <div class="table-wrap">
+            <table id="ivTable">
+                <thead>
+                    <tr>
+                        <th data-col="rank" class="sorted">#</th>
+                        <th data-col="symbol">Ticker</th>
+                        <th data-col="price">Price</th>
+                        <th data-col="iv30">30d IV</th>
+                        <th data-col="atmStrike">ATM Strike</th>
+                        <th data-col="dte">DTE</th>
+                        <th data-col="delta">Delta</th>
+                        <th data-col="mid">Put Premium</th>
+                        <th data-col="premiumPct">Premium %</th>
+                        <th data-col="annualizedYield">Ann. Yield</th>
+                    </tr>
+                </thead>
+                <tbody id="ivBody"></tbody>
+            </table>
+        </div>
+
+        <p class="disclaimer">
+            Live market data powered by Alpaca. IV shown is for the nearest ATM put at ~30 DTE.
+            This is not financial advice. High IV often reflects higher risk and expected volatility.
+        </p>
+    </div>
+
+    <script>
+        let scanResults = [];
+        let sortCol = "iv30";
+        let sortAsc = false;
+
+        const scanBtn = document.getElementById("scanBtn");
+        const statusMsg = document.getElementById("statusMsg");
+        const ivBody = document.getElementById("ivBody");
+        const progressBar = document.getElementById("progressBar");
+        const progressFill = document.getElementById("progressFill");
+
+        function formatCurrency(n) {
+            return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function setStatus(msg, type) {
+            statusMsg.textContent = msg;
+            statusMsg.className = "status-msg " + type;
+        }
+
+        async function runScan() {
+            const input = document.getElementById("tickerList").value.trim();
+            if (!input) {
+                setStatus("Enter at least one ticker.", "error");
+                return;
+            }
+
+            scanBtn.disabled = true;
+            scanBtn.textContent = "Scanning...";
+            progressBar.classList.remove("hidden");
+            progressFill.style.width = "10%";
+            setStatus("Scanning tickers for IV data...", "loading");
+
+            try {
+                // Animate progress
+                let progress = 10;
+                const progressTimer = setInterval(() => {
+                    progress = Math.min(progress + 5, 90);
+                    progressFill.style.width = progress + "%";
+                }, 800);
+
+                const resp = await fetch("/api/iv-scan?tickers=" + encodeURIComponent(input), {
+                    signal: AbortSignal.timeout(120000),
+                });
+                clearInterval(progressTimer);
+                progressFill.style.width = "100%";
+
+                if (!resp.ok) throw new Error("HTTP " + resp.status);
+                const data = await resp.json();
+
+                if (data.error) throw new Error(data.error);
+
+                scanResults = data.results || [];
+                sortCol = "iv30";
+                sortAsc = false;
+                renderTable();
+
+                if (scanResults.length > 0) {
+                    setStatus("Found IV data for " + scanResults.length + " tickers. Sorted by highest IV.", "success");
+                } else {
+                    setStatus("No IV data found. Check tickers or try again.", "error");
+                }
+            } catch (e) {
+                setStatus("Scan failed: " + e.message, "error");
+            }
+
+            setTimeout(() => {
+                progressBar.classList.add("hidden");
+                progressFill.style.width = "0%";
+            }, 500);
+            scanBtn.disabled = false;
+            scanBtn.textContent = "Scan IV";
+        }
+
+        function renderTable() {
+            // Sort
+            const sorted = [...scanResults].sort((a, b) => {
+                let va = a[sortCol], vb = b[sortCol];
+                if (typeof va === "string") {
+                    return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+                }
+                return sortAsc ? va - vb : vb - va;
+            });
+
+            // Find max IV for bar scaling
+            const maxIV = Math.max(...sorted.map(r => r.iv30), 1);
+
+            ivBody.innerHTML = "";
+            sorted.forEach((r, i) => {
+                const barWidth = Math.round((r.iv30 / maxIV) * 60);
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td class="rank-cell">${i + 1}</td>
+                    <td class="ticker-cell"><a href="/cash-secured-puts" onclick="localStorage.setItem('ivHunterTicker','${r.symbol}')">${r.symbol}</a></td>
+                    <td>${formatCurrency(r.price)}</td>
+                    <td class="iv-cell">${r.iv30.toFixed(1)}%<span class="iv-bar" style="width:${barWidth}px"></span></td>
+                    <td>${formatCurrency(r.atmStrike)}</td>
+                    <td>${r.dte}d</td>
+                    <td>${r.delta.toFixed(2)}</td>
+                    <td class="premium-cell">${formatCurrency(r.mid)}</td>
+                    <td>${r.premiumPct}%</td>
+                    <td class="yield-cell">${r.annualizedYield}%</td>
+                `;
+                ivBody.appendChild(row);
+            });
+
+            // Update header sort indicators
+            document.querySelectorAll("#ivTable thead th").forEach(th => {
+                th.classList.toggle("sorted", th.dataset.col === sortCol);
+            });
+        }
+
+        // Column sorting
+        document.querySelectorAll("#ivTable thead th").forEach(th => {
+            th.addEventListener("click", () => {
+                const col = th.dataset.col;
+                if (!col || col === "rank") return;
+                if (sortCol === col) {
+                    sortAsc = !sortAsc;
+                } else {
+                    sortCol = col;
+                    sortAsc = col === "symbol"; // alpha ascending for tickers, descending for numbers
+                }
+                renderTable();
+            });
+        });
+
+        // Auto-scan on load
+        runScan();
+    </script>
+</body>
+</html>
