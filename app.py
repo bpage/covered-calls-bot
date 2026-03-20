@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# ── MOMO INDEX blueprints ──
+from momo_api import momo_bp
+from reddit_scanner import reddit_bp
+app.register_blueprint(momo_bp)
+app.register_blueprint(reddit_bp)
+
+
+@app.route("/momo")
+def momo_dashboard():
+    return send_file("momo-index-v3.html")
+
 # Alpaca API credentials (set via environment variables)
 ALPACA_API_KEY = os.environ.get("ALPACA_API_KEY", "")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
