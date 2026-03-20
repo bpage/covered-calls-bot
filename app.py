@@ -14,8 +14,10 @@ app = Flask(__name__)
 # ── MOMO INDEX blueprints ──
 from momo_api import momo_bp
 from reddit_scanner import reddit_bp
+from x_scanner import x_bp
 app.register_blueprint(momo_bp)
 app.register_blueprint(reddit_bp)
+app.register_blueprint(x_bp)
 
 
 @app.route("/momo")
