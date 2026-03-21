@@ -145,6 +145,63 @@ def fetch_wsb_comments(limit=500):
         return []
 
 
+def get_momo_signals(universe: list) -> dict:
+    """
+    Returns {sym: score_0_100} for tickers in universe based on WSB mention data.
+    Called by momo_api.py background scheduler to blend into MOMO scores.
+    """
+    now_ts = time.time()
+    universe_set = set(universe)
+    ticker_agg = defaultdict(lambda: {'mentions': 0, 'eng_score': 0.0})
+
+    hot_posts  = fetch_wsb_posts(limit=100, sort='hot')
+    new_posts  = fetch_wsb_posts(limit=50,  sort='new')
+    all_posts  = hot_posts + new_posts
+
+    for child in all_posts:
+        post = child.get('data', {})
+        flair = (post.get('link_flair_text') or '').lower()
+        if flair in ('weekend discussion', 'daily discussion', 'meme', 'shitpost'):
+            continue
+        title    = post.get('title', '')
+        selftext = post.get('selftext', '') or ''
+        combined = title + ' ' + title + ' ' + selftext[:500]
+        upvotes  = post.get('score', 0) or 0
+        comments = post.get('num_comments', 0) or 0
+        created  = post.get('created_utc', now_ts)
+        eng      = score_post(upvotes, comments, created, now_ts)
+        tickers  = extract_tickers(combined)
+        for sym, info in tickers.items():
+            if sym in universe_set:
+                ticker_agg[sym]['mentions']  += info['count']
+                ticker_agg[sym]['eng_score'] += eng * info['count']
+
+    recent_comments = fetch_wsb_comments(limit=200)
+    for child in recent_comments:
+        comment = child.get('data', {})
+        body    = comment.get('body', '') or ''
+        score   = comment.get('score', 1) or 1
+        created = comment.get('created_utc', now_ts)
+        eng     = score_post(max(score, 0), 0, created, now_ts) * 0.3
+        tickers = extract_tickers(body[:300])
+        for sym, info in tickers.items():
+            if sym in universe_set:
+                ticker_agg[sym]['mentions']  += info['count']
+                ticker_agg[sym]['eng_score'] += eng
+
+    if not ticker_agg:
+        return {}
+
+    max_eng      = max(d['eng_score'] for d in ticker_agg.values()) or 1
+    max_mentions = max(d['mentions']  for d in ticker_agg.values()) or 1
+    result = {}
+    for sym, data in ticker_agg.items():
+        norm_eng      = data['eng_score'] / max_eng      * 60
+        norm_mentions = data['mentions']  / max_mentions * 40
+        result[sym]   = round(min(norm_eng + norm_mentions, 100), 1)
+    return result
+
+
 @reddit_bp.route('/api/reddit/wsb')
 def wsb_scanner():
     """

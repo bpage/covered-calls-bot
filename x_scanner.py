@@ -113,6 +113,42 @@ def extract_cashtags_from_tweet(tweet):
     return re.findall(r'\$([A-Z]{1,5})\b', text.upper())
 
 
+def get_momo_signals(universe: list) -> dict:
+    """
+    Returns {sym: score_0_100} for tickers in universe based on X cashtag data.
+    Called by momo_api.py background scheduler to blend into MOMO scores.
+    Returns empty dict if X_BEARER_TOKEN is not set.
+    """
+    if not X_BEARER_TOKEN:
+        return {}
+
+    universe_set = set(universe)
+    now_dt = datetime.now(timezone.utc)
+    tweets, err = fetch_cashtag_tweets(max_results=100)
+    if err or not tweets:
+        return {}
+
+    ticker_eng = defaultdict(float)
+    for tweet in tweets:
+        tickers  = extract_cashtags_from_tweet(tweet)
+        metrics  = tweet.get('public_metrics') or {}
+        created_at = tweet.get('created_at', '')
+        eng      = _score_tweet(metrics, created_at, now_dt)
+        for sym in tickers:
+            if sym in universe_set:
+                ticker_eng[sym] += eng
+
+    if not ticker_eng:
+        return {}
+
+    max_eng = max(ticker_eng.values()) or 1
+    return {
+        sym: round(min(score / max_eng * 100, 100), 1)
+        for sym, score in ticker_eng.items()
+        if sym in universe_set
+    }
+
+
 @x_bp.route('/api/x/cashtags')
 def x_cashtag_scanner():
     """
