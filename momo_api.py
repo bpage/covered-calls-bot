@@ -141,7 +141,7 @@ def fetch_stocktwits(sym):
                 'time':      m.get('created_at', ''),
             })
 
-        total    = bull_count + bear_count or 1
+        total    = len(messages) or 1
         bull_pct = round(bull_count / total * 100)
         bear_pct = 100 - bull_pct
 
