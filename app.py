@@ -52,7 +52,18 @@ def iv_hunter():
 
 @app.route("/api/status")
 def status():
-    return jsonify({"status": "ok", "alpaca": bool(ALPACA_API_KEY)})
+    alpaca_ok = False
+    if ALPACA_API_KEY and ALPACA_SECRET_KEY:
+        try:
+            resp = requests.get(
+                f"{ALPACA_DATA_URL}/v2/stocks/AAPL/snapshot?feed=iex",
+                headers={"APCA-API-KEY-ID": ALPACA_API_KEY, "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY},
+                timeout=5,
+            )
+            alpaca_ok = resp.status_code == 200
+        except Exception:
+            alpaca_ok = False
+    return jsonify({"status": "ok", "alpaca": alpaca_ok})
 
 
 # ── Alpaca Data Fetching ──
@@ -211,7 +222,7 @@ HIGH_IV_WATCHLIST = [
     # Crypto / Bitcoin proxy
     "MSTR", "COIN", "RIOT", "MARA", "HUT", "BITF", "CLSK",
     # Meme / retail favorites
-    "GME", "AMC", "BBBY", "HOOD", "SOFI", "LCID", "RIVN",
+    "GME", "AMC", "HOOD", "SOFI", "LCID", "RIVN",
     # High-growth tech / volatile
     "SMCI", "PLTR", "SNOW", "CRWD", "NET", "DKNG", "ROKU", "SNAP", "SQ", "SHOP",
     "ARM", "IONQ", "RGTI", "QUBT",
