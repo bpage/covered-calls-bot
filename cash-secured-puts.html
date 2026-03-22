@@ -494,16 +494,20 @@
             META: { price: 698.62, options: [] },
         };
 
-        // Normalize all static sample dates to rolling future offsets from today
+        // Normalize all static sample dates to rolling Friday expiry offsets from today
         (function normalizeSampleDates() {
-            function futureDate(daysOut) {
-                return new Date(Date.now() + daysOut * 86400000).toISOString().slice(0, 10);
+            function nextFriday(weeksOut) {
+                const d = new Date();
+                d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7) + (weeksOut - 1) * 7);
+                return d.toISOString().split("T")[0];
             }
-            const exp1 = futureDate(32), exp2 = futureDate(39);
+            const exp1 = nextFriday(4), exp2 = nextFriday(6);
+            const dte1 = Math.round((new Date(exp1) - new Date()) / 86400000);
+            const dte2 = Math.round((new Date(exp2) - new Date()) / 86400000);
             for (const ticker of Object.values(sampleDataByTicker)) {
                 for (const opt of ticker.options) {
-                    if (opt.dte <= 35) { opt.exp = exp1; opt.dte = 32; }
-                    else               { opt.exp = exp2; opt.dte = 39; }
+                    if (opt.dte <= 35) { opt.exp = exp1; opt.dte = dte1; }
+                    else               { opt.exp = exp2; opt.dte = dte2; }
                 }
             }
         })();
@@ -512,9 +516,14 @@
         function generateSamplePuts(symbol, estimatedPrice) {
             const price = estimatedPrice || 100;
             const options = [];
-            const dte1 = 32, dte2 = 39;
-            const exp1 = new Date(Date.now() + dte1 * 86400000).toISOString().slice(0, 10);
-            const exp2 = new Date(Date.now() + dte2 * 86400000).toISOString().slice(0, 10);
+            function nextFriday(weeksOut) {
+                const d = new Date();
+                d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7) + (weeksOut - 1) * 7);
+                return d.toISOString().split("T")[0];
+            }
+            const exp1 = nextFriday(4), exp2 = nextFriday(6);
+            const dte1 = Math.round((new Date(exp1) - new Date()) / 86400000);
+            const dte2 = Math.round((new Date(exp2) - new Date()) / 86400000);
             const deltas = [-0.28, -0.22, -0.17, -0.13, -0.10];
             const iv = price > 500 ? 0.18 : price > 200 ? 0.25 : price > 100 ? 0.35 : 0.45;
 
@@ -758,7 +767,7 @@
                     delta: Math.round(delta * 100) / 100,
                     bid: p.bid || 0,
                     ask: p.ask || 0,
-                    oi: p.openInterest || 0,
+                    oi: p.openInterest != null ? p.openInterest : null,
                     vol: p.volume || 0,
                 });
             }
@@ -785,7 +794,7 @@
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>
-                    <td>${opt.oi.toLocaleString()}</td>
+                    <td>${opt.oi != null ? opt.oi.toLocaleString() : "N/A"}</td>
                     <td>${opt.vol.toLocaleString()}</td>
                 `;
                 row.addEventListener("click", () => selectOption(i));

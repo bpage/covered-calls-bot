@@ -5,11 +5,16 @@ import logging
 import traceback
 import requests
 import yfinance as yf
+import concurrent.futures
+from cachetools import TTLCache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# TTL cache for options chain — prevents hammering Alpaca on every keystroke
+_options_cache = TTLCache(maxsize=50, ttl=120)
 
 # ── MOMO INDEX blueprints ──
 from momo_api import momo_bp
@@ -157,7 +162,7 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
             "expiration": int(datetime.strptime(exp_date, "%Y-%m-%d").timestamp()),
             "bid": quote.get("bp", 0) or 0,
             "ask": quote.get("ap", 0) or 0,
-            "openInterest": 0,
+            "openInterest": None,
             "volume": bar.get("v", 0) or 0,
             "impliedVolatility": snap.get("impliedVolatility", 0) or 0,
             "delta": greeks.get("delta", 0) or 0,
@@ -179,7 +184,7 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
             "expiration": int(datetime.strptime(exp_date, "%Y-%m-%d").timestamp()),
             "bid": quote.get("bp", 0) or 0,
             "ask": quote.get("ap", 0) or 0,
-            "openInterest": 0,
+            "openInterest": None,
             "volume": bar.get("v", 0) or 0,
             "impliedVolatility": snap.get("impliedVolatility", 0) or 0,
             "delta": greeks.get("delta", 0) or 0,
@@ -303,6 +308,88 @@ def api_iv_watchlist():
     return jsonify({"tickers": HIGH_IV_WATCHLIST})
 
 
+def _iv_scan_one(symbol, exp_gte, exp_lte, now):
+    """Fetch IV data for a single ticker. Returns a result dict or None."""
+    try:
+        price = _alpaca_stock_price(symbol)
+        if not price:
+            return None
+
+        strike_lo = price * 0.90
+        strike_hi = price * 1.02
+
+        params = {
+            "feed": "indicative",
+            "type": "put",
+            "expiration_date_gte": exp_gte,
+            "expiration_date_lte": exp_lte,
+            "strike_price_gte": f"{strike_lo:.0f}",
+            "strike_price_lte": f"{strike_hi:.0f}",
+            "limit": 50,
+        }
+        url = f"{ALPACA_DATA_URL}/v1beta1/options/snapshots/{symbol}"
+        resp = requests.get(url, headers=_alpaca_headers(), params=params, timeout=10)
+        resp.raise_for_status()
+        snapshots = resp.json().get("snapshots", {})
+
+        if not snapshots:
+            return None
+
+        best = None
+        best_distance = float("inf")
+        for occ_sym, snap in snapshots.items():
+            _, exp_date, _, strike = _parse_occ_symbol(occ_sym)
+            if not strike or not snap.get("impliedVolatility"):
+                continue
+            iv = snap["impliedVolatility"]
+            if iv <= 0:
+                continue
+            greeks = snap.get("greeks", {})
+            delta = greeks.get("delta", 0) or 0
+            quote = snap.get("latestQuote", {})
+            bid = quote.get("bp", 0) or 0
+            ask = quote.get("ap", 0) or 0
+            distance = abs(strike - price)
+            if distance < best_distance:
+                best_distance = distance
+                best = {
+                    "strike": strike,
+                    "expiration": exp_date,
+                    "iv": round(iv, 4),
+                    "delta": round(delta, 4),
+                    "bid": bid,
+                    "ask": ask,
+                    "mid": round((bid + ask) / 2, 2),
+                }
+
+        if not best:
+            return None
+
+        premium_pct = round((best["mid"] / price) * 100, 2)
+        exp_dt = datetime.strptime(best["expiration"], "%Y-%m-%d")
+        dte = (exp_dt - now).days
+        ann_yield = round((best["mid"] / best["strike"]) * (365 / max(dte, 1)) * 100, 1) if dte > 0 else 0
+
+        logger.info(f"IV scan {symbol}: price=${price:.2f}, IV={best['iv']*100:.1f}%, mid=${best['mid']}")
+        return {
+            "symbol": symbol,
+            "price": round(price, 2),
+            "iv30": round(best["iv"] * 100, 1),
+            "atmStrike": best["strike"],
+            "expiration": best["expiration"],
+            "dte": dte,
+            "delta": best["delta"],
+            "bid": best["bid"],
+            "ask": best["ask"],
+            "mid": best["mid"],
+            "premiumPct": premium_pct,
+            "annualizedYield": ann_yield,
+        }
+    except Exception as e:
+        logger.warning(f"IV scan failed for {symbol}: {e}")
+        return None
+
+
 @app.route("/api/iv-scan")
 def api_iv_scan():
     """Scan multiple tickers for 30-day ATM implied volatility."""
@@ -317,96 +404,15 @@ def api_iv_scan():
     if not ALPACA_API_KEY:
         return jsonify({"error": "Alpaca API not configured"}), 503
 
-    results = []
     now = datetime.now()
-    # Target ~30 DTE expiration window
     exp_gte = (now + timedelta(days=20)).strftime("%Y-%m-%d")
     exp_lte = (now + timedelta(days=45)).strftime("%Y-%m-%d")
 
-    for symbol in tickers:
-        try:
-            price = _alpaca_stock_price(symbol)
-            if not price:
-                continue
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(_iv_scan_one, sym, exp_gte, exp_lte, now): sym for sym in tickers}
+        raw = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-            # Get puts near ATM (within ~10% of stock price)
-            strike_lo = price * 0.90
-            strike_hi = price * 1.02
-
-            params = {
-                "feed": "indicative",
-                "type": "put",
-                "expiration_date_gte": exp_gte,
-                "expiration_date_lte": exp_lte,
-                "strike_price_gte": f"{strike_lo:.0f}",
-                "strike_price_lte": f"{strike_hi:.0f}",
-                "limit": 50,
-            }
-            url = f"{ALPACA_DATA_URL}/v1beta1/options/snapshots/{symbol}"
-            resp = requests.get(url, headers=_alpaca_headers(), params=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            snapshots = data.get("snapshots", {})
-
-            if not snapshots:
-                continue
-
-            # Find the put closest to ATM with valid IV and ~30 DTE
-            best = None
-            best_distance = float("inf")
-            for occ_sym, snap in snapshots.items():
-                _, exp_date, _, strike = _parse_occ_symbol(occ_sym)
-                if not strike or not snap.get("impliedVolatility"):
-                    continue
-                iv = snap["impliedVolatility"]
-                if iv <= 0:
-                    continue
-                greeks = snap.get("greeks", {})
-                delta = greeks.get("delta", 0) or 0
-                quote = snap.get("latestQuote", {})
-                bid = quote.get("bp", 0) or 0
-                ask = quote.get("ap", 0) or 0
-                # Prefer puts with delta around -0.30 (slightly OTM, good for selling)
-                distance = abs(strike - price)
-                if distance < best_distance:
-                    best_distance = distance
-                    best = {
-                        "strike": strike,
-                        "expiration": exp_date,
-                        "iv": round(iv, 4),
-                        "delta": round(delta, 4),
-                        "bid": bid,
-                        "ask": ask,
-                        "mid": round((bid + ask) / 2, 2),
-                    }
-
-            if best:
-                premium_pct = round((best["mid"] / price) * 100, 2)
-                # Annualize: (premium / strike) * (365 / dte) * 100
-                exp_dt = datetime.strptime(best["expiration"], "%Y-%m-%d")
-                dte = (exp_dt - now).days
-                ann_yield = round((best["mid"] / best["strike"]) * (365 / max(dte, 1)) * 100, 1) if dte > 0 else 0
-
-                results.append({
-                    "symbol": symbol,
-                    "price": round(price, 2),
-                    "iv30": round(best["iv"] * 100, 1),
-                    "atmStrike": best["strike"],
-                    "expiration": best["expiration"],
-                    "dte": dte,
-                    "delta": best["delta"],
-                    "bid": best["bid"],
-                    "ask": best["ask"],
-                    "mid": best["mid"],
-                    "premiumPct": premium_pct,
-                    "annualizedYield": ann_yield,
-                })
-                logger.info(f"IV scan {symbol}: price=${price:.2f}, IV={best['iv']*100:.1f}%, mid=${best['mid']}")
-
-        except Exception as e:
-            logger.warning(f"IV scan failed for {symbol}: {e}")
-
-    # Sort by IV descending
+    results = [r for r in raw if r is not None]
     results.sort(key=lambda x: x["iv30"], reverse=True)
 
     return jsonify({"results": results})
@@ -417,15 +423,24 @@ def api_yahoo_options(symbol):
     """Fetch stock price + options data. Uses Alpaca (primary) or Yahoo (fallback)."""
     symbol = symbol.upper()
 
+    if symbol in _options_cache:
+        return jsonify(_options_cache[symbol])
+
     # Try Alpaca first if credentials are available
     if ALPACA_API_KEY and ALPACA_SECRET_KEY:
         try:
-            return _fetch_alpaca(symbol)
+            resp = _fetch_alpaca(symbol)
+            _options_cache[symbol] = resp.get_json()
+            return resp
         except Exception as e:
             logger.warning(f"Alpaca failed for {symbol}, falling back to Yahoo: {e}")
 
     # Fallback to Yahoo
-    return _fetch_yahoo(symbol)
+    resp = _fetch_yahoo(symbol)
+    # Cache only successful responses (resp may be a (response, status) tuple on error)
+    if not isinstance(resp, tuple) and resp.status_code == 200:
+        _options_cache[symbol] = resp.get_json()
+    return resp
 
 
 def _fetch_alpaca(symbol):
