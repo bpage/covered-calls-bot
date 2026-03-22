@@ -455,8 +455,12 @@ def _fetch_alpaca(symbol):
     exp_gte = (now + timedelta(days=25)).strftime("%Y-%m-%d")
     exp_lte = (now + timedelta(days=90)).strftime("%Y-%m-%d")
 
-    call_snapshots = _alpaca_options_chain(symbol, "call", exp_gte, exp_lte)
-    put_snapshots = _alpaca_options_chain(symbol, "put", exp_gte, exp_lte)
+    # Fetch calls and puts in parallel — cuts options chain fetch time roughly in half
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        f_calls = ex.submit(_alpaca_options_chain, symbol, "call", exp_gte, exp_lte)
+        f_puts  = ex.submit(_alpaca_options_chain, symbol, "put",  exp_gte, exp_lte)
+        call_snapshots = f_calls.result()
+        put_snapshots  = f_puts.result()
 
     logger.info(f"{symbol}: Alpaca returned {len(call_snapshots)} call snapshots, {len(put_snapshots)} put snapshots")
 
