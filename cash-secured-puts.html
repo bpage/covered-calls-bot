@@ -415,7 +415,7 @@
                         <th>Exp Date</th>
                         <th>DTE</th>
                         <th>Delta</th>
-                        <th>IV</th>
+                        <th>IV%</th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
@@ -788,13 +788,21 @@
                 const mid = (opt.bid + opt.ask) / 2;
                 const row = document.createElement("tr");
                 if (i === selectedIndex) row.classList.add("selected");
+
+                // IV% with threshold coloring
+                let ivStr = "—";
+                if (opt.iv != null) {
+                    const ivColor = opt.iv >= 120 ? '#f85149' : opt.iv >= 80 ? '#e3b341' : '#f0883e';
+                    ivStr = `<span style="color:${ivColor};font-weight:600">${opt.iv.toFixed(1)}%</span>`;
+                }
+
                 row.innerHTML = `
                     <td><input type="radio" name="optSel" ${i === selectedIndex ? "checked" : ""}></td>
                     <td class="strike-cell">${formatCurrency(opt.strike)}</td>
                     <td>${opt.exp}</td>
                     <td>${opt.dte}d</td>
                     <td class="delta-cell">${opt.delta.toFixed(2)}</td>
-                    <td class="iv-cell">${opt.iv != null ? opt.iv.toFixed(1) + "%" : "—"}</td>
+                    <td class="iv-cell">${ivStr}</td>
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>
@@ -970,10 +978,11 @@
         cycleLengthSelect.addEventListener("change", updateProjections);
         tickerInput.addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(tickerDebounce); refreshData(); } });
 
-        // ── Check if coming from IV Hunter ──
-        const ivHunterTicker = localStorage.getItem("ivHunterTicker");
+        // ── Check if coming from IV Hunter (URL param ?ticker= or localStorage) ──
+        const urlTickerCSP = new URLSearchParams(window.location.search).get("ticker");
+        const ivHunterTicker = urlTickerCSP ? urlTickerCSP.toUpperCase() : localStorage.getItem("ivHunterTicker");
         if (ivHunterTicker) {
-            localStorage.removeItem("ivHunterTicker");
+            if (!urlTickerCSP) localStorage.removeItem("ivHunterTicker");
             tickerInput.value = ivHunterTicker;
             document.querySelectorAll(".ticker-btn").forEach(btn => {
                 btn.classList.toggle("active", btn.textContent === ivHunterTicker);

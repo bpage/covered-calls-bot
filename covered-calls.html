@@ -412,10 +412,11 @@
                     <tr>
                         <th></th>
                         <th>Strike</th>
+                        <th>% OTM</th>
                         <th>Exp Date</th>
                         <th>DTE</th>
                         <th>Delta</th>
-                        <th>IV</th>
+                        <th>IV%</th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
@@ -883,17 +884,33 @@
         // ── Table Rendering ──
         function renderTable() {
             optionBody.innerHTML = "";
+            const currentPrice = parseFloat(stockPriceInput.value) || 0;
             currentOptions.forEach((opt, i) => {
                 const mid = (opt.bid + opt.ask) / 2;
                 const row = document.createElement("tr");
                 if (i === selectedIndex) row.classList.add("selected");
+
+                // % OTM
+                const pctOtm = currentPrice > 0 ? (opt.strike - currentPrice) / currentPrice * 100 : null;
+                const otmStr = pctOtm != null
+                    ? `<span style="color:${pctOtm >= 0 ? '#3fb950' : '#f85149'}">${pctOtm >= 0 ? "+" : ""}${pctOtm.toFixed(1)}%</span>`
+                    : "—";
+
+                // IV% with threshold coloring
+                let ivStr = "—";
+                if (opt.iv != null) {
+                    const ivColor = opt.iv >= 120 ? '#f85149' : opt.iv >= 80 ? '#e3b341' : '#f0883e';
+                    ivStr = `<span style="color:${ivColor};font-weight:600">${opt.iv.toFixed(1)}%</span>`;
+                }
+
                 row.innerHTML = `
                     <td><input type="radio" name="optSel" ${i === selectedIndex ? "checked" : ""}></td>
                     <td class="strike-cell">${formatCurrency(opt.strike)}</td>
+                    <td>${otmStr}</td>
                     <td>${opt.exp}</td>
                     <td>${opt.dte}d</td>
                     <td class="delta-cell">${opt.delta.toFixed(2)}</td>
-                    <td class="iv-cell">${opt.iv != null ? opt.iv.toFixed(1) + "%" : "—"}</td>
+                    <td class="iv-cell">${ivStr}</td>
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>
@@ -1085,10 +1102,11 @@
         renderTable();
         updateProjections();
 
-        // Auto-load ticker passed from IV Hunter
-        const ivHunterCallTicker = localStorage.getItem("ivHunterCallTicker");
+        // Auto-load ticker from URL param (?ticker=TSLA) or localStorage (IV Hunter)
+        const urlTickerCC = new URLSearchParams(window.location.search).get("ticker");
+        const ivHunterCallTicker = urlTickerCC ? urlTickerCC.toUpperCase() : localStorage.getItem("ivHunterCallTicker");
         if (ivHunterCallTicker) {
-            localStorage.removeItem("ivHunterCallTicker");
+            if (!urlTickerCC) localStorage.removeItem("ivHunterCallTicker");
             tickerInput.value = ivHunterCallTicker;
             document.querySelectorAll(".ticker-btn").forEach(btn => {
                 btn.classList.toggle("active", btn.textContent === ivHunterCallTicker);

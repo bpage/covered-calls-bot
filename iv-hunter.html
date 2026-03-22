@@ -295,6 +295,7 @@
                         <th data-col="mid">Put Premium</th>
                         <th data-col="premiumPct">Premium %</th>
                         <th data-col="annualizedYield">Ann. Yield</th>
+                        <th>Screeners</th>
                     </tr>
                 </thead>
                 <tbody id="ivBody"></tbody>
@@ -458,11 +459,7 @@
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td class="rank-cell">${i + 1}</td>
-                    <td class="ticker-cell">
-                        ${r.symbol}
-                        <a href="/cash-secured-puts" onclick="localStorage.setItem('ivHunterTicker','${r.symbol}')" style="margin-left:0.5rem;font-size:0.78rem;color:#3fb950;font-weight:600;text-decoration:none;" title="View puts">Puts</a>
-                        <a href="/covered-calls" onclick="localStorage.setItem('ivHunterCallTicker','${r.symbol}')" style="margin-left:0.3rem;font-size:0.78rem;color:#58a6ff;font-weight:600;text-decoration:none;" title="View calls">Calls</a>
-                    </td>
+                    <td class="ticker-cell">${r.symbol}</td>
                     <td>${formatCurrency(r.price)}</td>
                     <td class="iv-cell">${r.iv30.toFixed(1)}%<span class="iv-bar" style="width:${barWidth}px"></span></td>
                     <td>${formatCurrency(r.atmStrike)}</td>
@@ -471,6 +468,10 @@
                     <td class="premium-cell">${formatCurrency(r.mid)}</td>
                     <td>${r.premiumPct}%</td>
                     <td class="yield-cell">${r.annualizedYield}%</td>
+                    <td style="white-space:nowrap">
+                        <a href="/covered-calls?ticker=${r.symbol}" style="color:#58a6ff;font-weight:600;font-size:0.82rem;text-decoration:none;margin-right:0.5rem" title="Open in Covered Calls screener">→ CC</a>
+                        <a href="/cash-secured-puts?ticker=${r.symbol}" style="color:#3fb950;font-weight:600;font-size:0.82rem;text-decoration:none" title="Open in Cash-Secured Puts screener">→ CSP</a>
+                    </td>
                 `;
                 ivBody.appendChild(row);
             });
