@@ -494,27 +494,43 @@
             META: { price: 698.62, options: [] },
         };
 
+        // Normalize all static sample dates to rolling future offsets from today
+        (function normalizeSampleDates() {
+            function futureDate(daysOut) {
+                return new Date(Date.now() + daysOut * 86400000).toISOString().slice(0, 10);
+            }
+            const exp1 = futureDate(32), exp2 = futureDate(39);
+            for (const ticker of Object.values(sampleDataByTicker)) {
+                for (const opt of ticker.options) {
+                    if (opt.dte <= 35) { opt.exp = exp1; opt.dte = 32; }
+                    else               { opt.exp = exp2; opt.dte = 39; }
+                }
+            }
+        })();
+
         // Generate sample put options for tickers that don't have hand-written data
         function generateSamplePuts(symbol, estimatedPrice) {
             const price = estimatedPrice || 100;
             const options = [];
-            const exp1 = "2026-04-17", exp2 = "2026-03-27";
+            const dte1 = 32, dte2 = 39;
+            const exp1 = new Date(Date.now() + dte1 * 86400000).toISOString().slice(0, 10);
+            const exp2 = new Date(Date.now() + dte2 * 86400000).toISOString().slice(0, 10);
             const deltas = [-0.28, -0.22, -0.17, -0.13, -0.10];
             const iv = price > 500 ? 0.18 : price > 200 ? 0.25 : price > 100 ? 0.35 : 0.45;
 
             for (const [i, delta] of deltas.entries()) {
                 const otmPct = 1 - (0.03 + i * 0.025) * (iv / 0.30);
                 const strike = Math.round(price * otmPct / 5) * 5 || Math.floor(price * otmPct);
-                const timeVal = price * iv * Math.sqrt(31 / 365) * Math.abs(delta) * 1.8;
+                const timeVal = price * iv * Math.sqrt(dte1 / 365) * Math.abs(delta) * 1.8;
                 const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
-                options.push({ strike, exp: exp1, dte: 31, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(2000 + Math.random() * 8000), vol: Math.floor(400 + Math.random() * 3000) });
+                options.push({ strike, exp: exp1, dte: dte1, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(2000 + Math.random() * 8000), vol: Math.floor(400 + Math.random() * 3000) });
             }
             for (const [i, delta] of [-0.30, -0.24, -0.19, -0.14, -0.10].entries()) {
                 const otmPct = 1 - (0.03 + i * 0.03) * (iv / 0.30);
                 const strike = Math.round(price * otmPct / 5) * 5 || Math.floor(price * otmPct);
-                const timeVal = price * iv * Math.sqrt(38 / 365) * Math.abs(delta) * 1.8;
+                const timeVal = price * iv * Math.sqrt(dte2 / 365) * Math.abs(delta) * 1.8;
                 const bid = Math.max(0.05, Math.round(timeVal * 100) / 100);
-                options.push({ strike, exp: exp2, dte: 38, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(1500 + Math.random() * 6000), vol: Math.floor(300 + Math.random() * 2000) });
+                options.push({ strike, exp: exp2, dte: dte2, delta, bid, ask: +(bid * 1.08).toFixed(2), oi: Math.floor(1500 + Math.random() * 6000), vol: Math.floor(300 + Math.random() * 2000) });
             }
             return options;
         }
