@@ -160,6 +160,7 @@
             white-space: nowrap;
         }
         .delta-cell { color: #f0883e; font-weight: 600; }
+        .iv-cell { color: #f0883e; font-weight: 600; }
         .premium-cell { color: #3fb950; font-weight: 600; }
         .strike-cell { font-weight: 600; }
         .projections {
@@ -414,6 +415,7 @@
                         <th>Exp Date</th>
                         <th>DTE</th>
                         <th>Delta</th>
+                        <th>IV</th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
@@ -765,6 +767,7 @@
                     exp: y + "-" + m + "-" + d,
                     dte: dte,
                     delta: Math.round(delta * 100) / 100,
+                    iv: p.impliedVolatility ? Math.round(p.impliedVolatility * 1000) / 10 : null,
                     bid: p.bid || 0,
                     ask: p.ask || 0,
                     oi: p.openInterest != null ? p.openInterest : null,
@@ -791,6 +794,7 @@
                     <td>${opt.exp}</td>
                     <td>${opt.dte}d</td>
                     <td class="delta-cell">${opt.delta.toFixed(2)}</td>
+                    <td class="iv-cell">${opt.iv != null ? opt.iv.toFixed(1) + "%" : "—"}</td>
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>

@@ -133,6 +133,7 @@
             white-space: nowrap;
         }
         .delta-cell { color: #58a6ff; font-weight: 600; }
+        .iv-cell { color: #f0883e; font-weight: 600; }
         .premium-cell { color: #3fb950; font-weight: 600; }
         .strike-cell { font-weight: 600; }
         .projections {
@@ -414,6 +415,7 @@
                         <th>Exp Date</th>
                         <th>DTE</th>
                         <th>Delta</th>
+                        <th>IV</th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
@@ -864,6 +866,7 @@
                     exp: y + "-" + m + "-" + d,
                     dte: dte,
                     delta: Math.round(delta * 100) / 100,
+                    iv: c.impliedVolatility ? Math.round(c.impliedVolatility * 1000) / 10 : null,
                     bid: c.bid || 0,
                     ask: c.ask || 0,
                     oi: c.openInterest != null ? c.openInterest : null,
@@ -890,6 +893,7 @@
                     <td>${opt.exp}</td>
                     <td>${opt.dte}d</td>
                     <td class="delta-cell">${opt.delta.toFixed(2)}</td>
+                    <td class="iv-cell">${opt.iv != null ? opt.iv.toFixed(1) + "%" : "—"}</td>
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>
@@ -1080,6 +1084,16 @@
         updateBadge();
         renderTable();
         updateProjections();
+
+        // Auto-load ticker passed from IV Hunter
+        const ivHunterCallTicker = localStorage.getItem("ivHunterCallTicker");
+        if (ivHunterCallTicker) {
+            localStorage.removeItem("ivHunterCallTicker");
+            tickerInput.value = ivHunterCallTicker;
+            document.querySelectorAll(".ticker-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.textContent === ivHunterCallTicker);
+            });
+        }
         fetchFreeData();
     </script>
 </body>
