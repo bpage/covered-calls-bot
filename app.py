@@ -232,18 +232,19 @@ def _compute_ivr(symbol, current_iv_pct=None):
     current_iv_pct: current implied vol as percentage (e.g., 85.0). If None,
     uses the most recent 20-day realized vol as the current value.
     """
-    if symbol in _ivr_cache:
-        return _ivr_cache[symbol]
+    cache_key = (symbol, current_iv_pct)
+    if cache_key in _ivr_cache:
+        return _ivr_cache[cache_key]
     try:
         hist = yf.Ticker(symbol).history(period="1y")
         if len(hist) < 30:
-            _ivr_cache[symbol] = None
+            _ivr_cache[cache_key] = None
             return None
         returns = hist["Close"].pct_change().dropna()
         rolling_vol = returns.rolling(20).std() * (252 ** 0.5) * 100
         rolling_vol = rolling_vol.dropna()
         if len(rolling_vol) < 20:
-            _ivr_cache[symbol] = None
+            _ivr_cache[cache_key] = None
             return None
         vol_min = float(rolling_vol.min())
         vol_max = float(rolling_vol.max())
@@ -253,11 +254,11 @@ def _compute_ivr(symbol, current_iv_pct=None):
         else:
             ivr = (current - vol_min) / (vol_max - vol_min) * 100
             ivr = round(max(0.0, min(200.0, ivr)), 1)
-        _ivr_cache[symbol] = ivr
+        _ivr_cache[cache_key] = ivr
         return ivr
     except Exception as e:
         logger.warning(f"IVR compute failed for {symbol}: {e}")
-        _ivr_cache[symbol] = None
+        _ivr_cache[cache_key] = None
         return None
 
 

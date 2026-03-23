@@ -642,7 +642,7 @@
             try {
                 const backendPath = "/api/yahoo/options/" + symbol + qs;
                 setStatus("Fetching " + symbol + " from server...", "loading");
-                const data = await fetchJSON(backendPath, 30000);
+                const data = await fetchJSON(backendPath, 90000);
                 if (data && !data.error && data.optionChain) return data;
                 if (data && data.error) {
                     console.warn("Backend error:", data.error);
