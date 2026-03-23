@@ -333,6 +333,29 @@
             .proj-grid { grid-template-columns: 1fr 1fr; }
             nav.top-nav { padding: 0.5rem 1rem; gap: 1rem; }
         }
+        .col-tip { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+        .col-tip .tip-icon { font-size: 0.7em; color: #8b949e; cursor: help; user-select: none; }
+        .col-tip .tip-body {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            font-size: 0.78rem;
+            font-weight: 400;
+            line-height: 1.5;
+            white-space: pre-line;
+            padding: 8px 10px;
+            border-radius: 6px;
+            width: 260px;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .col-tip:hover .tip-body { display: block; }
     </style>
 </head>
 <body>
@@ -417,7 +440,11 @@
                         <th>DTE</th>
                         <th>Delta</th>
                         <th>IV%</th>
-                        <th>IVR</th>
+                        <th><span class="col-tip">IVR<span class="tip-icon">ⓘ</span><span class="tip-body">IV Rank (IVR) — where current IV sits vs. its 52-week range.
+• 0–20: IV historically low → options cheap
+• 20–60: IV neutral
+• 60–80: IV elevated → good for selling premium
+• 80–100: IV historically high → best for selling premium</span></span></th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
