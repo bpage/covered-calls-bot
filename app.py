@@ -16,6 +16,9 @@ app = Flask(__name__)
 # TTL cache for options chain — prevents hammering Alpaca on every keystroke
 _options_cache = TTLCache(maxsize=50, ttl=120)
 
+# TTL cache for IV Rank — computed from 1-year price history, stable for an hour
+_ivr_cache = TTLCache(maxsize=200, ttl=3600)
+
 # ── MOMO INDEX blueprints ──
 from momo_api import momo_bp
 from reddit_scanner import reddit_bp
@@ -221,6 +224,43 @@ def _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots):
 
 
 
+def _compute_ivr(symbol, current_iv_pct=None):
+    """Compute IV Rank proxy using 1-year realized volatility as a historical IV range.
+
+    IVR = (current_IV - 52wk_low_RV) / (52wk_high_RV - 52wk_low_RV) * 100
+
+    current_iv_pct: current implied vol as percentage (e.g., 85.0). If None,
+    uses the most recent 20-day realized vol as the current value.
+    """
+    if symbol in _ivr_cache:
+        return _ivr_cache[symbol]
+    try:
+        hist = yf.Ticker(symbol).history(period="1y")
+        if len(hist) < 30:
+            _ivr_cache[symbol] = None
+            return None
+        returns = hist["Close"].pct_change().dropna()
+        rolling_vol = returns.rolling(20).std() * (252 ** 0.5) * 100
+        rolling_vol = rolling_vol.dropna()
+        if len(rolling_vol) < 20:
+            _ivr_cache[symbol] = None
+            return None
+        vol_min = float(rolling_vol.min())
+        vol_max = float(rolling_vol.max())
+        current = current_iv_pct if current_iv_pct is not None else float(rolling_vol.iloc[-1])
+        if vol_max <= vol_min:
+            ivr = 50.0
+        else:
+            ivr = (current - vol_min) / (vol_max - vol_min) * 100
+            ivr = round(max(0.0, min(200.0, ivr)), 1)
+        _ivr_cache[symbol] = ivr
+        return ivr
+    except Exception as e:
+        logger.warning(f"IVR compute failed for {symbol}: {e}")
+        _ivr_cache[symbol] = None
+        return None
+
+
 # Curated high-IV watchlist — stocks known for elevated implied volatility
 # Covers: crypto-adjacent, meme stocks, biotech, energy/solar, high-growth tech, EV, fintech
 HIGH_IV_WATCHLIST = [
@@ -370,11 +410,15 @@ def _iv_scan_one(symbol, exp_gte, exp_lte, now):
         dte = (exp_dt - now).days
         ann_yield = round((best["mid"] / best["strike"]) * (365 / max(dte, 1)) * 100, 1) if dte > 0 else 0
 
-        logger.info(f"IV scan {symbol}: price=${price:.2f}, IV={best['iv']*100:.1f}%, mid=${best['mid']}")
+        current_iv_pct = round(best["iv"] * 100, 1)
+        ivr = _compute_ivr(symbol, current_iv_pct)
+
+        logger.info(f"IV scan {symbol}: price=${price:.2f}, IV={current_iv_pct}%, IVR={ivr}, mid=${best['mid']}")
         return {
             "symbol": symbol,
             "price": round(price, 2),
-            "iv30": round(best["iv"] * 100, 1),
+            "iv30": current_iv_pct,
+            "ivRank": ivr,
             "atmStrike": best["strike"],
             "expiration": best["expiration"],
             "dte": dte,
@@ -464,7 +508,9 @@ def _fetch_alpaca(symbol):
 
     logger.info(f"{symbol}: Alpaca returned {len(call_snapshots)} call snapshots, {len(put_snapshots)} put snapshots")
 
-    return jsonify(_build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots))
+    response_data = _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots)
+    response_data["ivRank"] = _compute_ivr(symbol)
+    return jsonify(response_data)
 
 
 def _fetch_yahoo(symbol):
@@ -503,6 +549,7 @@ def _fetch_yahoo(symbol):
 
         return jsonify({
             "source": "yfinance",
+            "ivRank": _compute_ivr(symbol),
             "optionChain": {
                 "result": [{
                     "quote": {"regularMarketPrice": stock_price},

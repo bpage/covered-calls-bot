@@ -412,10 +412,12 @@
                     <tr>
                         <th></th>
                         <th>Strike</th>
+                        <th>% OTM</th>
                         <th>Exp Date</th>
                         <th>DTE</th>
                         <th>Delta</th>
                         <th>IV%</th>
+                        <th>IVR</th>
                         <th>Bid</th>
                         <th>Ask</th>
                         <th>Mid</th>
@@ -562,6 +564,7 @@
         let isLiveData = false;
         let dataSource = "sample";
         let currentTicker = "MSTR";
+        let currentIVR = null;
 
         // ── DOM refs ──
         const tickerInput = document.getElementById("ticker");
@@ -674,6 +677,7 @@
                 if (!stockPrice) throw new Error("No stock price returned for " + symbol);
 
                 dataSource = data.source || "yfinance";
+                currentIVR = data.ivRank != null ? data.ivRank : null;
 
                 stockPriceInput.value = stockPrice.toFixed(2);
                 headerBadge.textContent = symbol;
@@ -718,6 +722,7 @@
                 const hasRealSample = !!(sampleDataByTicker[symbol] && sampleDataByTicker[symbol].options.length > 0);
                 currentOptions = [...sample.options];
                 currentTicker = symbol;
+                currentIVR = null;
                 stockPriceInput.value = sample.price.toFixed(2);
                 headerBadge.textContent = symbol;
                 isLiveData = false;
@@ -784,10 +789,17 @@
         // ── Table Rendering ──
         function renderTable() {
             optionBody.innerHTML = "";
+            const currentPrice = parseFloat(stockPriceInput.value) || 0;
             currentOptions.forEach((opt, i) => {
                 const mid = (opt.bid + opt.ask) / 2;
                 const row = document.createElement("tr");
                 if (i === selectedIndex) row.classList.add("selected");
+
+                // % OTM for puts: negative = below stock price (safety buffer), shown in green
+                const pctOtm = currentPrice > 0 ? (opt.strike - currentPrice) / currentPrice * 100 : null;
+                const otmStr = pctOtm != null
+                    ? `<span style="color:#3fb950">${pctOtm.toFixed(1)}%</span>`
+                    : "—";
 
                 // IV% with threshold coloring
                 let ivStr = "—";
@@ -796,13 +808,22 @@
                     ivStr = `<span style="color:${ivColor};font-weight:600">${opt.iv.toFixed(1)}%</span>`;
                 }
 
+                // IVR color coding: green <20, yellow 20-60, amber 60-80, red >80
+                let ivrStr = "—";
+                if (currentIVR != null) {
+                    const ivrColor = currentIVR >= 80 ? '#f85149' : currentIVR >= 60 ? '#e3b341' : currentIVR >= 20 ? '#f0883e' : '#3fb950';
+                    ivrStr = `<span style="color:${ivrColor};font-weight:700">${currentIVR.toFixed(0)}</span>`;
+                }
+
                 row.innerHTML = `
                     <td><input type="radio" name="optSel" ${i === selectedIndex ? "checked" : ""}></td>
                     <td class="strike-cell">${formatCurrency(opt.strike)}</td>
+                    <td>${otmStr}</td>
                     <td>${opt.exp}</td>
                     <td>${opt.dte}d</td>
                     <td class="delta-cell">${opt.delta.toFixed(2)}</td>
                     <td class="iv-cell">${ivStr}</td>
+                    <td>${ivrStr}</td>
                     <td>${formatCurrency(opt.bid)}</td>
                     <td>${formatCurrency(opt.ask)}</td>
                     <td class="premium-cell">${formatCurrency(mid)}</td>

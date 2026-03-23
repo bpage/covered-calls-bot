@@ -285,10 +285,11 @@
             <table id="ivTable">
                 <thead>
                     <tr>
-                        <th data-col="rank" class="sorted">#</th>
+                        <th data-col="rank">#</th>
                         <th data-col="symbol">Ticker</th>
                         <th data-col="price">Price</th>
                         <th data-col="iv30">30d IV</th>
+                        <th data-col="ivRank" class="sorted">IVR</th>
                         <th data-col="atmStrike">ATM Strike</th>
                         <th data-col="dte">DTE</th>
                         <th data-col="delta">Delta</th>
@@ -310,7 +311,7 @@
 
     <script>
         let scanResults = [];
-        let sortCol = "iv30";
+        let sortCol = "ivRank";
         let sortAsc = false;
 
         const scanBtn = document.getElementById("scanBtn");
@@ -419,12 +420,12 @@
                 if (data.error) throw new Error(data.error);
 
                 scanResults = data.results || [];
-                sortCol = "iv30";
+                sortCol = "ivRank";
                 sortAsc = false;
                 renderTable();
 
                 if (scanResults.length > 0) {
-                    setStatus("Found IV data for " + scanResults.length + " tickers. Sorted by highest IV.", "success");
+                    setStatus("Found IV data for " + scanResults.length + " tickers. Sorted by highest IV Rank.", "success");
                 } else {
                     setStatus("No IV data found. Check tickers or try again.", "error");
                 }
@@ -456,12 +457,21 @@
             ivBody.innerHTML = "";
             sorted.forEach((r, i) => {
                 const barWidth = Math.round((r.iv30 / maxIV) * 60);
+                // IVR color coding: green <20, yellow 20-60, amber 60-80, red >80
+                let ivrStr = "—";
+                if (r.ivRank != null) {
+                    const ivr = r.ivRank;
+                    const ivrColor = ivr >= 80 ? '#f85149' : ivr >= 60 ? '#e3b341' : ivr >= 20 ? '#f0883e' : '#3fb950';
+                    ivrStr = `<span style="color:${ivrColor};font-weight:700">${ivr.toFixed(0)}</span>`;
+                }
+
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td class="rank-cell">${i + 1}</td>
                     <td class="ticker-cell">${r.symbol}</td>
                     <td>${formatCurrency(r.price)}</td>
                     <td class="iv-cell">${r.iv30.toFixed(1)}%<span class="iv-bar" style="width:${barWidth}px"></span></td>
+                    <td>${ivrStr}</td>
                     <td>${formatCurrency(r.atmStrike)}</td>
                     <td>${r.dte}d</td>
                     <td>${r.delta.toFixed(2)}</td>
