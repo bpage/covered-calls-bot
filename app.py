@@ -509,8 +509,21 @@ def _fetch_alpaca(symbol):
 
     logger.info(f"{symbol}: Alpaca returned {len(call_snapshots)} call snapshots, {len(put_snapshots)} put snapshots")
 
+    # Extract ATM put IV for IVR — same methodology as IV Hunter scan for consistency
+    atm_iv_pct = None
+    best_dist = float("inf")
+    for occ_sym, snap in put_snapshots.items():
+        _, _, _, strike = _parse_occ_symbol(occ_sym)
+        iv = snap.get("impliedVolatility")
+        if not strike or not iv or iv <= 0:
+            continue
+        dist = abs(strike - stock_price)
+        if dist < best_dist:
+            best_dist = dist
+            atm_iv_pct = round(iv * 100, 1)
+
     response_data = _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots)
-    response_data["ivRank"] = _compute_ivr(symbol)
+    response_data["ivRank"] = _compute_ivr(symbol, atm_iv_pct)
     return jsonify(response_data)
 
 

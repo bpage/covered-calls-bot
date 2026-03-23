@@ -442,13 +442,15 @@
         }
 
         function renderTable() {
-            // Sort
+            // Sort — null values always sink to the bottom regardless of sort direction
             const sorted = [...scanResults].sort((a, b) => {
                 let va = a[sortCol], vb = b[sortCol];
                 if (typeof va === "string") {
                     return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
                 }
-                return sortAsc ? va - vb : vb - va;
+                const na = va ?? (sortAsc ? Infinity : -Infinity);
+                const nb = vb ?? (sortAsc ? Infinity : -Infinity);
+                return sortAsc ? na - nb : nb - na;
             });
 
             // Find max IV for bar scaling
