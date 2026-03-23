@@ -263,7 +263,7 @@ def _compute_ivr(symbol, current_iv_pct=None):
             ivr = 50.0
         else:
             ivr = (current - vol_min) / (vol_max - vol_min) * 100
-            ivr = round(max(0.0, min(200.0, ivr)), 1)
+            ivr = round(max(0.0, min(100.0, ivr)), 1)
         _ivr_cache[cache_key] = ivr
         return ivr
     except Exception as e:
@@ -468,8 +468,6 @@ def api_iv_scan():
         raw = [f.result() for f in concurrent.futures.as_completed(futures)]
 
     results = [r for r in raw if r is not None]
-    results.sort(key=lambda x: x["iv30"], reverse=True)
-
     return jsonify({"results": results})
 
 
