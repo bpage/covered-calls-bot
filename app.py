@@ -376,7 +376,7 @@ def _iv_scan_one(symbol, exp_gte, exp_lte, now):
             "expiration_date_lte": exp_lte,
             "strike_price_gte": f"{strike_lo:.0f}",
             "strike_price_lte": f"{strike_hi:.0f}",
-            "limit": 50,
+            "limit": 200,  # SPY/QQQ can have 100+ strikes in this range across multiple weeklies
         }
         url = f"{ALPACA_DATA_URL}/v1beta1/options/snapshots/{symbol}"
         resp = requests.get(url, headers=_alpaca_headers(), params=params, timeout=10)
@@ -386,28 +386,40 @@ def _iv_scan_one(symbol, exp_gte, exp_lte, now):
         if not snapshots:
             return None
 
-        best = None
-        best_distance = float("inf")
+        # Group by expiration date, filter out zero/missing IV
+        exp_groups: dict = {}
         for occ_sym, snap in snapshots.items():
             _, exp_date, _, strike = _parse_occ_symbol(occ_sym)
-            if not strike or not snap.get("impliedVolatility"):
+            iv = snap.get("impliedVolatility") or 0
+            if not strike or iv <= 0:
                 continue
-            iv = snap["impliedVolatility"]
-            if iv <= 0:
-                continue
-            greeks = snap.get("greeks", {})
-            delta = greeks.get("delta", 0) or 0
-            quote = snap.get("latestQuote", {})
-            bid = quote.get("bp", 0) or 0
-            ask = quote.get("ap", 0) or 0
+            exp_groups.setdefault(exp_date, []).append((strike, snap))
+
+        if not exp_groups:
+            return None
+
+        # Pick the expiration closest to 30 DTE, then find the ATM strike within it
+        TARGET_DTE = 30
+        best_exp = min(
+            exp_groups,
+            key=lambda d: abs((datetime.strptime(d, "%Y-%m-%d") - now).days - TARGET_DTE)
+        )
+
+        best = None
+        best_distance = float("inf")
+        for strike, snap in exp_groups[best_exp]:
             distance = abs(strike - price)
             if distance < best_distance:
                 best_distance = distance
+                greeks = snap.get("greeks", {})
+                quote = snap.get("latestQuote", {})
+                bid = quote.get("bp", 0) or 0
+                ask = quote.get("ap", 0) or 0
                 best = {
                     "strike": strike,
-                    "expiration": exp_date,
-                    "iv": round(iv, 4),
-                    "delta": round(delta, 4),
+                    "expiration": best_exp,
+                    "iv": round(snap["impliedVolatility"], 4),
+                    "delta": round(greeks.get("delta", 0) or 0, 4),
                     "bid": bid,
                     "ask": ask,
                     "mid": round((bid + ask) / 2, 2),
