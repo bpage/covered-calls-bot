@@ -678,6 +678,7 @@
 
                 dataSource = data.source || "yfinance";
                 currentIVR = data.ivRank != null ? data.ivRank : null;
+                const chainWarning = data.warning || null;
 
                 stockPriceInput.value = stockPrice.toFixed(2);
                 headerBadge.textContent = symbol;
@@ -705,7 +706,11 @@
                     renderTable();
                     updateProjections();
                     const srcLabel = dataSource === "alpaca" ? "Alpaca" : "Yahoo Finance";
-                    setStatus("Loaded " + allOptions.length + " " + symbol + " put options from " + srcLabel + ".", "success");
+                    if (chainWarning) {
+                        setStatus("Loaded " + allOptions.length + " " + symbol + " put options from " + srcLabel + ". ⚠ " + chainWarning, "error");
+                    } else {
+                        setStatus("Loaded " + allOptions.length + " " + symbol + " put options from " + srcLabel + ".", "success");
+                    }
                 } else {
                     currentOptions = generateSamplePuts(symbol, stockPrice);
                     currentTicker = symbol;

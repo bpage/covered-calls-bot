@@ -99,11 +99,17 @@ def _alpaca_stock_price(symbol):
 
 
 def _alpaca_options_chain(symbol, opt_type, exp_gte, exp_lte):
-    """Fetch all options snapshots from Alpaca with pagination."""
+    """Fetch all options snapshots from Alpaca with pagination.
+
+    Returns (snapshots_dict, truncated_bool). truncated is True if we hit
+    the safety cap and stopped before the chain was exhausted.
+    """
     all_snapshots = {}
     page_token = None
+    MAX_PAGES = 100  # safety cap: 100 × 100 = 10,000 contracts per side
+    truncated = False
 
-    for _ in range(10):  # max 10 pages
+    for page_num in range(MAX_PAGES):
         params = {
             "feed": "indicative",
             "type": opt_type,
@@ -125,8 +131,12 @@ def _alpaca_options_chain(symbol, opt_type, exp_gte, exp_lte):
         page_token = data.get("next_page_token")
         if not page_token:
             break
+        if page_num == MAX_PAGES - 1:
+            # Hit safety cap while next_page_token still present
+            truncated = True
+            logger.warning(f"{symbol} {opt_type}: hit {MAX_PAGES}-page safety cap ({len(all_snapshots)} contracts fetched); chain may be truncated")
 
-    return all_snapshots
+    return all_snapshots, truncated
 
 
 def _parse_occ_symbol(occ_symbol):
@@ -504,10 +514,11 @@ def _fetch_alpaca(symbol):
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
         f_calls = ex.submit(_alpaca_options_chain, symbol, "call", exp_gte, exp_lte)
         f_puts  = ex.submit(_alpaca_options_chain, symbol, "put",  exp_gte, exp_lte)
-        call_snapshots = f_calls.result()
-        put_snapshots  = f_puts.result()
+        call_snapshots, calls_truncated = f_calls.result()
+        put_snapshots,  puts_truncated  = f_puts.result()
 
-    logger.info(f"{symbol}: Alpaca returned {len(call_snapshots)} call snapshots, {len(put_snapshots)} put snapshots")
+    chain_truncated = calls_truncated or puts_truncated
+    logger.info(f"{symbol}: Alpaca returned {len(call_snapshots)} call snapshots, {len(put_snapshots)} put snapshots (truncated={chain_truncated})")
 
     # Extract ATM put IV for IVR — same methodology as IV Hunter scan for consistency
     atm_iv_pct = None
@@ -524,6 +535,8 @@ def _fetch_alpaca(symbol):
 
     response_data = _build_alpaca_response(symbol, stock_price, call_snapshots, put_snapshots)
     response_data["ivRank"] = _compute_ivr(symbol, atm_iv_pct)
+    if chain_truncated:
+        response_data["warning"] = "Options chain may be incomplete — too many contracts to fetch in a single request. Results shown are partial."
     return jsonify(response_data)
 
 

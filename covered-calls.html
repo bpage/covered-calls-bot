@@ -774,6 +774,7 @@
 
                 dataSource = data.source || "yfinance";
                 currentIVR = data.ivRank != null ? data.ivRank : null;
+                const chainWarning = data.warning || null;
 
                 // Update price immediately
                 stockPriceInput.value = stockPrice.toFixed(2);
@@ -802,7 +803,11 @@
                     renderTable();
                     updateProjections();
                     const srcLabel = dataSource === "alpaca" ? "Alpaca" : "Yahoo Finance";
-                    setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + srcLabel + ".", "success");
+                    if (chainWarning) {
+                        setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + srcLabel + ". ⚠ " + chainWarning, "error");
+                    } else {
+                        setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + srcLabel + ".", "success");
+                    }
                 } else {
                     // Got a live price but no options matched delta range — generate sample options at live price
                     currentOptions = generateSampleOptions(symbol, stockPrice);
