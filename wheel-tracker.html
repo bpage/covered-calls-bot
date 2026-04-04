@@ -362,6 +362,25 @@
         .live-refresh:hover { color: #58a6ff; }
         .live-loading { color: #484f58; font-size: 0.78rem; font-style: italic; }
 
+        /* Option price / P&L row */
+        .live-opt-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            padding: 0.3rem 0 0.45rem;
+            border-bottom: 1px solid #21262d;
+            margin-bottom: 0.4rem;
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+        .live-opt-price { color: #c9d1d9; font-weight: 600; }
+        .live-opt-spread { color: #8b949e; font-size: 0.76rem; }
+        .live-pl { font-weight: 700; }
+        .live-pl.profit { color: #3fb950; }
+        .live-pl.loss   { color: #f85149; }
+        .live-close-cost { color: #8b949e; }
+
         @media (max-width: 600px) {
             nav.top-nav { padding: 0.5rem 1rem; gap: 0.8rem; }
             header { padding: 0.8rem 1rem; }
@@ -801,7 +820,7 @@
             return `<div class="live-row"><span class="live-price">${priceStr}</span>${refreshBtn}</div>`;
         }
 
-        // Active option — price, DTE, OTM%, delta
+        // Active option — row 1: stock price, DTE, OTM%, delta, IV
         let dteChip = '';
         if (ld.dte != null) {
             const cls = ld.dte <= 6 ? 'dte-danger' : ld.dte <= 14 ? 'dte-warn' : '';
@@ -828,7 +847,39 @@
             ivChip = `<span class="live-chip">IV ${ld.iv}%</span>`;
         }
 
-        return `<div class="live-row">
+        // Row 2: option price, P/L vs premium collected, close cost
+        let optRow = '';
+        if (ld.opt_mid != null) {
+            const mid      = Number(ld.opt_mid);
+            const bid      = Number(ld.opt_bid ?? 0);
+            const ask      = Number(ld.opt_ask ?? 0);
+            const midStr   = `$${mid.toFixed(2)}`;
+            const spreadStr = (bid > 0 || ask > 0) ? ` ($${bid.toFixed(2)} × $${ask.toFixed(2)})` : '';
+
+            // P/L: we sold the option, so profit = premium collected - current value
+            let plHtml = '';
+            if (entry.premium > 0) {
+                const collected  = Number(entry.premium);
+                const contracts  = Number(entry.contracts || 1);
+                const plPerShare = collected - mid;                // positive = profit
+                const plPct      = (plPerShare / collected) * 100;
+                const closeCost  = mid * 100 * contracts;
+                const plSign     = plPerShare >= 0 ? '+' : '';
+                const plClass    = plPerShare >= 0 ? 'profit' : 'loss';
+                const plLabel    = `${plSign}$${Math.abs(plPerShare).toFixed(2)} / ${plSign}${Math.abs(plPct).toFixed(0)}%`;
+                const closeLabel = `Close cost: $${closeCost.toFixed(2)}`;
+                plHtml = `<span class="live-pl ${plClass}">${plLabel}</span>`
+                       + `<span class="live-close-cost">${closeLabel}</span>`;
+            }
+
+            optRow = `<div class="live-opt-row">
+                <span class="live-opt-price">Option ${midStr} mid</span>
+                <span class="live-opt-spread">${spreadStr}</span>
+                ${plHtml}
+            </div>`;
+        }
+
+        return `${optRow}<div class="live-row">
             <span class="live-price">${priceStr}</span>
             ${dteChip}${otmChip}${deltaChip}${ivChip}
             ${refreshBtn}

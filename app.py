@@ -445,6 +445,9 @@ def api_wheel_quote():
             "delta": None,
             "delta_estimated": False,
             "iv": None,
+            "opt_bid": None,
+            "opt_ask": None,
+            "opt_mid": None,
         }
 
         if strike > 0:
@@ -480,10 +483,16 @@ def api_wheel_quote():
                     if best_snap:
                         greeks = best_snap.get("greeks") or {}
                         iv_raw = best_snap.get("impliedVolatility")
+                        quote = best_snap.get("latestQuote") or {}
+                        bid = float(quote.get("bp", 0) or 0)
+                        ask = float(quote.get("ap", 0) or 0)
                         if greeks.get("delta") is not None:
                             result["delta"] = round(float(greeks["delta"]), 4)
                         if iv_raw:
                             result["iv"] = round(float(iv_raw) * 100, 1)
+                        result["opt_bid"] = round(bid, 2)
+                        result["opt_ask"] = round(ask, 2)
+                        result["opt_mid"] = round((bid + ask) / 2, 2)
             except Exception as e:
                 logger.warning(f"wheel-quote greeks fetch failed for {ticker}: {e}")
 
