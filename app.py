@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_file
 from datetime import datetime, timedelta
+import math
 import os
 import logging
 import traceback
@@ -58,6 +59,11 @@ def iv_hunter():
     return send_file("iv-hunter.html")
 
 
+@app.route("/wheel-tracker")
+def wheel_tracker():
+    return send_file("wheel-tracker.html")
+
+
 @app.route("/api/status")
 def status():
     alpaca_ok = False
@@ -81,6 +87,21 @@ def _alpaca_headers():
         "APCA-API-KEY-ID": ALPACA_API_KEY,
         "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY,
     }
+
+
+def _bs_delta(S, K, T, r, sigma, opt_type="put"):
+    """Black-Scholes delta. T in years, sigma as decimal (e.g. 0.50 = 50% IV).
+    Uses math.erf for the normal CDF — no scipy needed."""
+    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        if opt_type == "put":
+            return -1.0 if S <= K else 0.0
+        return 1.0 if S >= K else 0.0
+    try:
+        d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+        nd1 = 0.5 * (1.0 + math.erf(d1 / math.sqrt(2.0)))
+        return nd1 if opt_type == "call" else nd1 - 1.0
+    except Exception:
+        return None
 
 
 def _alpaca_stock_price(symbol):
@@ -357,6 +378,130 @@ def api_active_tickers():
 def api_iv_watchlist():
     """Return the curated high-IV watchlist tickers."""
     return jsonify({"tickers": HIGH_IV_WATCHLIST})
+
+
+@app.route("/api/stock-price/<ticker>")
+def api_stock_price(ticker):
+    """Quick price lookup for a single ticker via Alpaca."""
+    ticker = ticker.upper()
+    if not ALPACA_API_KEY:
+        return jsonify({"error": "Alpaca not configured"}), 503
+    try:
+        price = _alpaca_stock_price(ticker)
+        if not price:
+            return jsonify({"error": f"No price for {ticker}"}), 404
+        return jsonify({"ticker": ticker, "price": round(price, 2)})
+    except Exception as e:
+        logger.error(f"stock-price failed for {ticker}: {e}")
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/api/wheel-quote")
+def api_wheel_quote():
+    """Fetch live price + option greeks for a specific wheel position.
+
+    Query params:
+      ticker     — stock symbol (e.g. NVDA)
+      type       — 'put' or 'call'
+      strike     — option strike price (float)
+      expiration — YYYY-MM-DD
+
+    Returns price, dte, otm_pct, delta (from Alpaca greeks or B-S estimate), iv.
+    """
+    ticker     = request.args.get("ticker", "").upper()
+    opt_type   = request.args.get("type", "put").lower()
+    expiration = request.args.get("expiration", "")
+    try:
+        strike = float(request.args.get("strike", 0))
+    except (ValueError, TypeError):
+        strike = 0.0
+
+    if not ticker:
+        return jsonify({"error": "ticker required"}), 400
+    if not ALPACA_API_KEY:
+        return jsonify({"error": "Alpaca not configured"}), 503
+
+    try:
+        price = _alpaca_stock_price(ticker)
+        if not price:
+            return jsonify({"error": f"No price for {ticker}"}), 404
+
+        # DTE
+        dte = None
+        if expiration:
+            try:
+                exp_date = datetime.strptime(expiration, "%Y-%m-%d").date()
+                dte = max(0, (exp_date - datetime.now().date()).days)
+            except ValueError:
+                pass
+
+        result = {
+            "ticker": ticker,
+            "price": round(price, 2),
+            "strike": strike,
+            "expiration": expiration,
+            "dte": dte,
+            "otm_pct": None,
+            "delta": None,
+            "delta_estimated": False,
+            "iv": None,
+        }
+
+        if strike > 0:
+            # OTM % — positive means out-of-the-money (good for premium sellers)
+            if opt_type == "put":
+                result["otm_pct"] = round((price - strike) / strike * 100, 2)
+            else:
+                result["otm_pct"] = round((strike - price) / strike * 100, 2)
+
+        # Try Alpaca options snapshot for live greeks on the exact contract
+        if strike > 0 and expiration:
+            try:
+                params = {
+                    "feed": "indicative",
+                    "type": opt_type,
+                    "expiration_date_gte": expiration,
+                    "expiration_date_lte": expiration,
+                    "strike_price_gte": str(max(0, strike - 2.5)),
+                    "strike_price_lte": str(strike + 2.5),
+                    "limit": 20,
+                }
+                url = f"{ALPACA_DATA_URL}/v1beta1/options/snapshots/{ticker}"
+                resp = requests.get(url, headers=_alpaca_headers(), params=params, timeout=8)
+                if resp.status_code == 200:
+                    snapshots = resp.json().get("snapshots", {})
+                    best_snap = None
+                    best_dist = float("inf")
+                    for occ_sym, snap in snapshots.items():
+                        _, _, _, snap_strike = _parse_occ_symbol(occ_sym)
+                        if snap_strike and abs(snap_strike - strike) < best_dist:
+                            best_dist = abs(snap_strike - strike)
+                            best_snap = snap
+                    if best_snap:
+                        greeks = best_snap.get("greeks") or {}
+                        iv_raw = best_snap.get("impliedVolatility")
+                        if greeks.get("delta") is not None:
+                            result["delta"] = round(float(greeks["delta"]), 4)
+                        if iv_raw:
+                            result["iv"] = round(float(iv_raw) * 100, 1)
+            except Exception as e:
+                logger.warning(f"wheel-quote greeks fetch failed for {ticker}: {e}")
+
+        # Black-Scholes delta fallback when Alpaca didn't return greeks
+        if result["delta"] is None and strike > 0 and dte is not None and dte > 0:
+            iv_decimal = (result["iv"] / 100.0) if result["iv"] else 0.50
+            bs = _bs_delta(price, strike, dte / 365.0, 0.045, iv_decimal, opt_type)
+            if bs is not None:
+                result["delta"] = round(bs, 4)
+                result["delta_estimated"] = True
+
+        logger.info(f"wheel-quote {ticker} {opt_type} ${strike} exp={expiration}: "
+                    f"price=${price:.2f} dte={dte} otm={result['otm_pct']} delta={result['delta']}")
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"wheel-quote failed for {ticker}: {e}")
+        return jsonify({"error": str(e)}), 502
 
 
 def _iv_scan_one(symbol, exp_gte, exp_lte, now):

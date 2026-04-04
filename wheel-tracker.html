@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wheel Tracker — Options Income Tools</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        nav.top-nav {
+            background: #0d1117;
+            border-bottom: 1px solid #21262d;
+            padding: 0.5rem 2rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        nav.top-nav a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.3rem 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        nav.top-nav a:hover { color: #e6edf3; }
+        nav.top-nav a.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+        nav.top-nav .nav-home { color: #58a6ff; font-size: 0.9rem; margin-right: 0.5rem; }
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header h1 { font-size: 1.4rem; color: #58a6ff; }
+        header h1 span { color: #8b949e; font-weight: 400; }
+        .container { max-width: 1060px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+        /* Buttons */
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary { background: #238636; color: #fff; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #30363d; color: #e6edf3; }
+        .btn-secondary:hover { background: #3d444d; }
+        .btn-danger { background: #3d0d09; color: #f85149; border: 1px solid #6e1f1a; }
+        .btn-danger:hover { background: #6e1f1a; }
+        .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+
+        /* Info banner */
+        .info-banner {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+
+        /* Summary bar */
+        .summary-bar {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+        .summary-bar .summary-item .label {
+            font-size: 0.72rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .summary-bar .summary-item .value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #e6edf3;
+        }
+        .summary-bar .summary-item .value.green { color: #3fb950; }
+        .summary-bar .summary-item .value.blue { color: #58a6ff; }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .campaign-count { font-size: 0.85rem; color: #8b949e; }
+
+        /* Campaign cards grid */
+        .campaigns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+        .campaign-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 1.2rem;
+            transition: border-color 0.2s;
+        }
+        .campaign-card:hover { border-color: #484f58; }
+        .campaign-card.expanded { border-color: #58a6ff; }
+        .campaign-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+            cursor: pointer;
+        }
+        .campaign-ticker { font-size: 1.4rem; font-weight: 700; color: #e6edf3; }
+        .campaign-started { font-size: 0.8rem; color: #8b949e; margin-top: 0.1rem; }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .status-CSP_OPEN   { background: #1a2f5a; color: #58a6ff; }
+        .status-ASSIGNED   { background: #3d2b00; color: #f0883e; }
+        .status-CC_OPEN    { background: #2d1f5a; color: #a371f7; }
+        .status-CALLED_AWAY { background: #0f2f14; color: #3fb950; }
+        .status-CLOSED     { background: #21262d; color: #8b949e; }
+
+        /* Campaign stats */
+        .campaign-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.8rem;
+            cursor: pointer;
+        }
+        .stat-item .stat-label {
+            font-size: 0.72rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .stat-item .stat-value {
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+        .stat-value.green  { color: #3fb950; }
+        .stat-value.blue   { color: #58a6ff; }
+        .stat-value.orange { color: #f0883e; }
+        .stat-value.muted  { color: #8b949e; }
+
+        /* Action buttons strip */
+        .campaign-actions {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #21262d;
+            align-items: center;
+        }
+        .campaign-actions .spacer { flex: 1; }
+
+        /* Trade timeline */
+        .campaign-detail { display: none; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid #21262d; }
+        .campaign-detail.open { display: block; }
+        .detail-heading {
+            font-size: 0.72rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.6rem;
+        }
+        .trade-entry {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.85rem;
+        }
+        .trade-entry:last-child { border-bottom: none; }
+        .trade-type-badge {
+            display: inline-block;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+        .badge-CSP { background: #1a2f5a; color: #58a6ff; }
+        .badge-CC  { background: #2d1f5a; color: #a371f7; }
+        .trade-info { flex: 1; min-width: 0; }
+        .trade-action-label { font-weight: 600; color: #c9d1d9; }
+        .trade-meta { font-size: 0.78rem; color: #8b949e; margin-top: 0.1rem; }
+        .trade-cash {
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .trade-cash.credit { color: #3fb950; }
+        .trade-cash.debit  { color: #f85149; }
+        .trade-cash.neutral { color: #8b949e; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #8b949e;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+        }
+        .empty-state .empty-icon { font-size: 2.8rem; margin-bottom: 1rem; }
+        .empty-state h2 { color: #c9d1d9; font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .empty-state p { font-size: 0.88rem; margin-bottom: 1.5rem; line-height: 1.6; max-width: 380px; margin-left: auto; margin-right: auto; }
+
+        /* Modal overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 480px;
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+        .modal h2 { font-size: 1.05rem; margin-bottom: 1.2rem; color: #e6edf3; }
+        .modal-footer {
+            display: flex;
+            gap: 0.8rem;
+            justify-content: flex-end;
+            margin-top: 1.2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #21262d;
+        }
+
+        /* Form fields */
+        .field { margin-bottom: 0.9rem; }
+        .field label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #c9d1d9;
+            margin-bottom: 0.3rem;
+        }
+        .field .hint { font-size: 0.78rem; color: #8b949e; margin-top: 0.25rem; }
+        input[type="text"], input[type="number"], input[type="date"], select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        input:focus, select:focus { outline: none; border-color: #58a6ff; }
+        .input-row { display: flex; gap: 0.8rem; }
+        .input-row .field { flex: 1; min-width: 0; }
+        .status-msg { font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+        .status-msg.success { color: #3fb950; }
+        .status-msg.error   { color: #f85149; }
+        .status-msg.loading { color: #58a6ff; }
+
+        .disclaimer {
+            font-size: 0.75rem;
+            color: #484f58;
+            margin-top: 2rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        /* Live market data row */
+        .live-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding: 0.45rem 0 0.55rem;
+            border-bottom: 1px solid #21262d;
+            margin-bottom: 0.4rem;
+        }
+        .live-price {
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #e6edf3;
+        }
+        .live-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.12rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            background: #21262d;
+            color: #8b949e;
+        }
+        .dte-warn   { background: #3d2e00; color: #f0883e; }
+        .dte-danger { background: #3d0d09; color: #f85149; }
+        .chip-otm   { background: #0f2f14; color: #3fb950; }
+        .chip-itm   { background: #3d0d09; color: #f85149; }
+        .live-refresh {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #484f58;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0.1rem 0.3rem;
+            border-radius: 4px;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        .live-refresh:hover { color: #58a6ff; }
+        .live-loading { color: #484f58; font-size: 0.78rem; font-style: italic; }
+
+        @media (max-width: 600px) {
+            nav.top-nav { padding: 0.5rem 1rem; gap: 0.8rem; }
+            header { padding: 0.8rem 1rem; }
+            .campaigns-grid { grid-template-columns: 1fr; }
+            .summary-bar { gap: 1rem; }
+            .input-row { flex-direction: column; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="/" class="nav-home">Options Income</a>
+        <a href="/covered-calls">Covered Calls</a>
+        <a href="/cash-secured-puts">Cash-Secured Puts</a>
+        <a href="/iv-hunter">IV Hunter</a>
+        <a href="/wheel-tracker" class="active">Wheel Tracker</a>
+    </nav>
+    <header>
+        <h1>Wheel Tracker <span>— Full Lifecycle Per Ticker</span></h1>
+    </header>
+
+    <div class="container">
+        <div class="info-banner">
+            Track each wheel campaign from CSP open → assignment → covered calls → called away.
+            All data is stored in your browser — nothing is sent to a server.
+        </div>
+
+        <!-- Portfolio summary bar (hidden when empty) -->
+        <div class="summary-bar" id="summaryBar" style="display:none">
+            <div class="summary-item">
+                <div class="label">Active Campaigns</div>
+                <div class="value" id="summActive">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">Total Premium Collected</div>
+                <div class="value green" id="summTotalPremium">$0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">Open Positions</div>
+                <div class="value blue" id="summOpenPositions">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">Closed / Called Away P&amp;L</div>
+                <div class="value green" id="summClosedPnL">$0</div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button class="btn btn-primary" onclick="openNewCampaignModal()">+ New Campaign</button>
+                <span class="campaign-count" id="campaignCount"></span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="exportData()" id="exportBtn" style="display:none">Export JSON</button>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" style="display:none">
+            <div class="empty-state">
+                <div class="empty-icon">&#x1F6DE;</div>
+                <h2>No campaigns yet</h2>
+                <p>Start your first wheel campaign by selling a cash-secured put on a stock you'd like to own at a lower price.</p>
+                <button class="btn btn-primary" onclick="openNewCampaignModal()">Start First Campaign</button>
+            </div>
+        </div>
+
+        <!-- Campaign cards -->
+        <div class="campaigns-grid" id="campaignsGrid"></div>
+
+        <p class="disclaimer">
+            Data stored in browser localStorage only. Not financial advice. The wheel strategy involves real risk including assignment and potential loss.
+        </p>
+    </div>
+
+    <!-- ── New Campaign Modal ──────────────────────────────────────── -->
+    <div class="modal-overlay" id="newCampaignModal">
+        <div class="modal">
+            <h2>&#x1F4C4; Start New Wheel Campaign</h2>
+            <div class="field">
+                <label>Ticker Symbol</label>
+                <input type="text" id="nc_ticker" placeholder="NVDA" maxlength="10" autocomplete="off"
+                    style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+                <div class="hint" id="nc_priceHint"></div>
+            </div>
+            <div class="input-row">
+                <div class="field">
+                    <label>CSP Strike Price</label>
+                    <input type="number" id="nc_strike" placeholder="450.00" min="0.01" step="0.5">
+                </div>
+                <div class="field">
+                    <label>Premium / Share</label>
+                    <input type="number" id="nc_premium" placeholder="3.50" min="0" step="0.01">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="field">
+                    <label>Contracts</label>
+                    <input type="number" id="nc_contracts" value="1" min="1" step="1">
+                </div>
+                <div class="field">
+                    <label>Expiration Date</label>
+                    <input type="date" id="nc_expiration">
+                </div>
+            </div>
+            <div class="field">
+                <label>Date Opened</label>
+                <input type="date" id="nc_dateOpened">
+            </div>
+            <div class="status-msg" id="nc_status"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModalById('newCampaignModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="createCampaign()">Start Campaign</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Action Modal ────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="actionModal">
+        <div class="modal">
+            <h2 id="actionModalTitle">Log Trade</h2>
+            <div id="actionModalBody"></div>
+            <div class="status-msg" id="am_status"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModalById('actionModal')">Cancel</button>
+                <button class="btn btn-primary" id="actionModalSubmit" onclick="submitAction()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Archive / Close Modal ───────────────────────────────────── -->
+    <div class="modal-overlay" id="archiveModal">
+        <div class="modal">
+            <h2>Archive Campaign</h2>
+            <p style="color:#8b949e;font-size:0.88rem;margin-bottom:1rem;line-height:1.6">
+                Use this to close out a campaign manually — e.g. put expired worthless, or you closed the position early.
+            </p>
+            <div class="input-row">
+                <div class="field">
+                    <label>Date Closed</label>
+                    <input type="date" id="arch_dateClosed">
+                </div>
+                <div class="field">
+                    <label>Closing Debit / Share (0 if expired)</label>
+                    <input type="number" id="arch_debit" value="0" min="0" step="0.01">
+                </div>
+            </div>
+            <div class="status-msg" id="arch_status"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModalById('archiveModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitArchive()">Archive</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ── Storage ──────────────────────────────────────────────────────────────
+    const STORAGE_KEY = 'wheel_campaigns_v1';
+
+    function loadCampaigns() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+        catch { return []; }
+    }
+    function saveCampaigns(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+    // ── Math ─────────────────────────────────────────────────────────────────
+    function computeCampaign(c) {
+        let totalPremium = 0, putPremium = 0, callPremium = 0;
+
+        for (const e of c.entries) {
+            // Skip non-cash events
+            if (e.action === 'ASSIGNED' || e.action === 'CALLED_AWAY') continue;
+            const gross = e.premium * 100 * e.contracts;
+            // CLOSE actions are debits (buying back) — subtract from total
+            const net = (e.action === 'CLOSE') ? -gross : gross;
+            totalPremium += net;
+            if (e.type === 'CSP') putPremium += net;
+            if (e.type === 'CC')  callPremium += net;
+        }
+
+        // Cost basis: assignment_strike - put_premium_per_share
+        const assignEntry = c.entries.find(e => e.action === 'ASSIGNED');
+        const assignContracts = assignEntry ? (assignEntry.contracts || c.contracts) : c.contracts;
+        const putPerShare = assignContracts > 0 ? putPremium / (assignContracts * 100) : 0;
+        const costBasis = assignEntry ? (assignEntry.strike - putPerShare) : null;
+
+        // Adjusted cost basis: cost_basis - call_premium_per_share
+        const callPerShare = assignContracts > 0 ? callPremium / (assignContracts * 100) : 0;
+        const adjCostBasis = costBasis !== null ? (costBasis - callPerShare) : null;
+
+        // Days in trade
+        const start = new Date(c.dateStarted);
+        const end   = c.dateClosed ? new Date(c.dateClosed) : new Date();
+        const days  = Math.max(1, Math.round((end - start) / 86400000));
+
+        // Annualized return based on capital at risk (original CSP strike)
+        const firstEntry = c.entries[0];
+        const capitalBase = firstEntry ? (firstEntry.strike * 100 * firstEntry.contracts) : 0;
+        const annReturn = capitalBase > 0
+            ? (totalPremium / capitalBase) * (365 / days) * 100
+            : 0;
+
+        return {
+            totalPremium,
+            putPremium,
+            callPremium,
+            costBasis,
+            adjCostBasis,
+            days,
+            annReturn: Math.round(annReturn * 10) / 10,
+        };
+    }
+
+    // ── Formatters ───────────────────────────────────────────────────────────
+    function fmt$(n) {
+        if (n === null || n === undefined || isNaN(n)) return '—';
+        const sign = n < 0 ? '-' : '';
+        return sign + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtPct(n) {
+        if (n === null || n === undefined || isNaN(n)) return '—';
+        return (n >= 0 ? '' : '') + n.toFixed(1) + '%';
+    }
+    function fmtDate(s) {
+        if (!s) return '—';
+        const [y, m, d] = s.split('-');
+        return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    }
+    function todayISO() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    const STATUS_LABELS = {
+        CSP_OPEN: 'CSP Open', ASSIGNED: 'Assigned',
+        CC_OPEN: 'CC Open',   CALLED_AWAY: 'Called Away', CLOSED: 'Closed',
+    };
+    let expandedId = null;
+
+    function render() {
+        const campaigns = loadCampaigns();
+        const grid       = document.getElementById('campaignsGrid');
+        const emptyState = document.getElementById('emptyState');
+        const summaryBar = document.getElementById('summaryBar');
+        const countEl    = document.getElementById('campaignCount');
+        const exportBtn  = document.getElementById('exportBtn');
+
+        if (campaigns.length === 0) {
+            emptyState.style.display = '';
+            grid.innerHTML = '';
+            summaryBar.style.display = 'none';
+            countEl.textContent = '';
+            exportBtn.style.display = 'none';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        summaryBar.style.display = '';
+        exportBtn.style.display = '';
+
+        const active = campaigns.filter(c => c.status !== 'CLOSED' && c.status !== 'CALLED_AWAY');
+        countEl.textContent = `${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''} · ${active.length} active`;
+
+        // Summary
+        const allComp       = campaigns.map(computeCampaign);
+        const totalPremium  = allComp.reduce((s, x) => s + x.totalPremium, 0);
+        const closedPnL     = campaigns
+            .filter(c => c.status === 'CLOSED' || c.status === 'CALLED_AWAY')
+            .map(computeCampaign)
+            .reduce((s, x) => s + x.totalPremium, 0);
+        const openCount = active.filter(c => c.status === 'CSP_OPEN' || c.status === 'CC_OPEN').length;
+
+        document.getElementById('summActive').textContent          = active.length;
+        document.getElementById('summTotalPremium').textContent    = fmt$(totalPremium);
+        document.getElementById('summOpenPositions').textContent   = openCount;
+        document.getElementById('summClosedPnL').textContent       = fmt$(closedPnL);
+
+        grid.innerHTML = campaigns.map(renderCard).join('');
+    }
+
+    function renderCard(c) {
+        const comp       = computeCampaign(c);
+        const isExpanded = expandedId === c.id;
+        const label      = STATUS_LABELS[c.status] || c.status;
+
+        return `
+        <div class="campaign-card${isExpanded ? ' expanded' : ''}" id="card-${c.id}">
+            <div class="campaign-header-row" onclick="toggleExpand('${c.id}')">
+                <div>
+                    <div class="campaign-ticker">${esc(c.ticker)}</div>
+                    <div class="campaign-started">Started ${fmtDate(c.dateStarted)} · ${comp.days}d</div>
+                </div>
+                <span class="status-badge status-${c.status}">${label}</span>
+            </div>
+
+            <div id="live-${c.id}">${renderLiveRow(c)}</div>
+
+            <div class="campaign-stats" onclick="toggleExpand('${c.id}')">
+                <div class="stat-item">
+                    <div class="stat-label">Total Premium</div>
+                    <div class="stat-value${comp.totalPremium >= 0 ? ' green' : ' debit'}">${fmt$(comp.totalPremium)}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Ann. Return</div>
+                    <div class="stat-value blue">${fmtPct(comp.annReturn)}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Cost Basis / Share</div>
+                    <div class="stat-value">${comp.costBasis !== null ? fmt$(comp.costBasis) : '—'}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Adj. Cost Basis</div>
+                    <div class="stat-value">${comp.adjCostBasis !== null ? fmt$(comp.adjCostBasis) : '—'}</div>
+                </div>
+            </div>
+
+            <div class="campaign-actions">${renderActions(c)}</div>
+
+            <div class="campaign-detail${isExpanded ? ' open' : ''}">${renderDetail(c, comp)}</div>
+        </div>`;
+    }
+
+    function renderActions(c) {
+        const id = c.id;
+        let out = '';
+        if (c.status === 'CSP_OPEN') {
+            out += btn('Closed for Profit', `openAction('${id}','CSP_CLOSE')`);
+            out += btn('Rolled',            `openAction('${id}','CSP_ROLL')`);
+            out += btn('Assigned',          `openAction('${id}','ASSIGNED')`, 'primary');
+        } else if (c.status === 'ASSIGNED') {
+            out += btn('Sell Covered Call', `openAction('${id}','SELL_CC')`, 'primary');
+        } else if (c.status === 'CC_OPEN') {
+            out += btn('Closed for Profit', `openAction('${id}','CC_CLOSE')`);
+            out += btn('Rolled',            `openAction('${id}','CC_ROLL')`);
+            out += btn('Called Away',       `openAction('${id}','CALLED_AWAY')`, 'primary');
+        } else if (c.status === 'CALLED_AWAY' || c.status === 'CLOSED') {
+            const icon = c.status === 'CALLED_AWAY' ? '&#x2705;' : '&#x1F4C1;';
+            out += `<span style="font-size:0.82rem;color:#8b949e;align-self:center">${icon} ${STATUS_LABELS[c.status]} · ${fmtDate(c.dateClosed)}</span>`;
+        }
+        if (c.status !== 'CALLED_AWAY' && c.status !== 'CLOSED') {
+            out += `<div class="spacer"></div>`;
+            out += `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openArchive('${id}')">Archive</button>`;
+        } else {
+            out += `<div class="spacer"></div>`;
+        }
+        out += `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCampaign('${id}')">Delete</button>`;
+        return out;
+    }
+
+    function btn(label, onclick, style='secondary') {
+        return `<button class="btn btn-${style} btn-sm" onclick="event.stopPropagation();${onclick}">${label}</button>`;
+    }
+
+    function renderDetail(c, comp) {
+        if (c.entries.length === 0) return '<p style="color:#8b949e;font-size:0.85rem">No trades yet.</p>';
+        const ACTION_LABELS = { OPEN: 'Opened', CLOSE: 'Closed', ROLL: 'Rolled', ASSIGNED: 'Assigned', CALLED_AWAY: 'Called Away' };
+        const rows = c.entries.map(e => {
+            const isDebit   = e.action === 'CLOSE';
+            const isCash    = e.action !== 'ASSIGNED' && e.action !== 'CALLED_AWAY';
+            const cash      = e.premium * 100 * e.contracts;
+            const cashClass = !isCash ? 'neutral' : isDebit ? 'debit' : 'credit';
+            const cashLabel = !isCash ? '—'
+                : (isDebit ? '-' : '+') + fmt$(cash);
+            const meta = [
+                'Exp ' + fmtDate(e.expiration),
+                'Opened ' + fmtDate(e.dateOpened),
+                e.dateClosed ? 'Closed ' + fmtDate(e.dateClosed) : '',
+            ].filter(Boolean).join(' · ');
+            return `
+            <div class="trade-entry">
+                <span class="trade-type-badge badge-${e.type}">${e.type}</span>
+                <div class="trade-info">
+                    <div class="trade-action-label">${ACTION_LABELS[e.action] || e.action} — $${e.strike} strike × ${e.contracts} contract${e.contracts !== 1 ? 's' : ''}</div>
+                    <div class="trade-meta">${meta}</div>
+                </div>
+                <div class="trade-cash ${cashClass}">${cashLabel}</div>
+            </div>`;
+        }).join('');
+
+        const summaryLine = comp.totalPremium !== 0
+            ? `<div style="display:flex;justify-content:flex-end;padding-top:0.5rem;font-size:0.85rem;font-weight:600;color:#3fb950">Net Premium: ${fmt$(comp.totalPremium)}</div>`
+            : '';
+
+        return `<div class="detail-heading">Trade History · ${comp.days} day${comp.days !== 1 ? 's' : ''} in trade</div>
+                <div>${rows}</div>${summaryLine}`;
+    }
+
+    function toggleExpand(id) {
+        expandedId = expandedId === id ? null : id;
+        render();
+    }
+
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    // ── Live market data ─────────────────────────────────────────────────────
+    const _liveData = {}; // { campaignId: { loading, price, dte, otm_pct, delta, iv, error } }
+
+    // Find the currently active open option entry for a campaign.
+    function getActiveEntry(c) {
+        if (c.status === 'CSP_OPEN') {
+            return [...c.entries].reverse().find(e =>
+                e.type === 'CSP' && (e.action === 'OPEN' || e.action === 'ROLL') && !e.dateClosed
+            ) || null;
+        }
+        if (c.status === 'CC_OPEN') {
+            return [...c.entries].reverse().find(e =>
+                e.type === 'CC' && (e.action === 'OPEN' || e.action === 'ROLL') && !e.dateClosed
+            ) || null;
+        }
+        if (c.status === 'ASSIGNED') return { noOption: true };
+        return null; // CLOSED / CALLED_AWAY — nothing to fetch
+    }
+
+    function renderLiveRow(c) {
+        const entry = getActiveEntry(c);
+        if (!entry) return ''; // closed campaigns get no live row
+
+        const ld  = _liveData[c.id];
+        const rid = esc(c.id);
+        const refreshBtn = `<button class="live-refresh" onclick="event.stopPropagation();fetchCardData('${rid}')" title="Refresh live data">↻</button>`;
+
+        if (!ld || ld.loading) {
+            const msg = ld && ld.loading ? 'Fetching…' : '';
+            return `<div class="live-row"><span class="live-loading">${msg}</span>${refreshBtn}</div>`;
+        }
+        if (ld.error) {
+            return `<div class="live-row"><span style="color:#484f58;font-size:0.78rem">Price unavailable</span>${refreshBtn}</div>`;
+        }
+
+        const priceStr = ld.price != null ? `$${Number(ld.price).toFixed(2)}` : '—';
+
+        if (entry.noOption) {
+            // ASSIGNED — just stock price
+            return `<div class="live-row"><span class="live-price">${priceStr}</span>${refreshBtn}</div>`;
+        }
+
+        // Active option — price, DTE, OTM%, delta
+        let dteChip = '';
+        if (ld.dte != null) {
+            const cls = ld.dte <= 6 ? 'dte-danger' : ld.dte <= 14 ? 'dte-warn' : '';
+            dteChip = `<span class="live-chip ${cls}">${ld.dte} DTE</span>`;
+        }
+
+        let otmChip = '';
+        if (ld.otm_pct != null) {
+            const isOtm = ld.otm_pct >= 0;
+            const label = isOtm
+                ? `OTM +${Math.abs(ld.otm_pct).toFixed(1)}%`
+                : `ITM ${Math.abs(ld.otm_pct).toFixed(1)}%`;
+            otmChip = `<span class="live-chip ${isOtm ? 'chip-otm' : 'chip-itm'}">${label}</span>`;
+        }
+
+        let deltaChip = '';
+        if (ld.delta != null) {
+            const suffix = ld.delta_estimated ? ' ~' : '';
+            deltaChip = `<span class="live-chip">Δ ${Number(ld.delta).toFixed(2)}${suffix}</span>`;
+        }
+
+        let ivChip = '';
+        if (ld.iv != null) {
+            ivChip = `<span class="live-chip">IV ${ld.iv}%</span>`;
+        }
+
+        return `<div class="live-row">
+            <span class="live-price">${priceStr}</span>
+            ${dteChip}${otmChip}${deltaChip}${ivChip}
+            ${refreshBtn}
+        </div>`;
+    }
+
+    // Update just the live row for one card without re-rendering the whole grid.
+    function updateLiveRow(campaignId) {
+        const el = document.getElementById(`live-${campaignId}`);
+        if (!el) return;
+        const campaigns = loadCampaigns();
+        const c = campaigns.find(x => x.id === campaignId);
+        if (c) el.innerHTML = renderLiveRow(c);
+    }
+
+    async function fetchCardData(campaignId) {
+        const campaigns = loadCampaigns();
+        const c = campaigns.find(x => x.id === campaignId);
+        if (!c) return;
+        const entry = getActiveEntry(c);
+        if (!entry) return;
+
+        _liveData[campaignId] = { loading: true };
+        updateLiveRow(campaignId);
+
+        try {
+            if (entry.noOption) {
+                const resp = await fetch(`/api/stock-price/${encodeURIComponent(c.ticker)}`,
+                    { signal: AbortSignal.timeout(10000) });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                _liveData[campaignId] = { price: data.price, loading: false, error: null };
+            } else {
+                const optType = entry.type === 'CSP' ? 'put' : 'call';
+                const url = `/api/wheel-quote?ticker=${encodeURIComponent(c.ticker)}`
+                    + `&type=${optType}&strike=${entry.strike}&expiration=${entry.expiration}`;
+                const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                _liveData[campaignId] = { ...data, loading: false, error: null };
+            }
+        } catch (e) {
+            _liveData[campaignId] = { loading: false, error: e.message };
+        }
+        updateLiveRow(campaignId);
+    }
+
+    // Fire fetches for all active campaigns in parallel on page load.
+    function fetchAllCardData() {
+        const campaigns = loadCampaigns();
+        campaigns
+            .filter(c => c.status !== 'CLOSED' && c.status !== 'CALLED_AWAY')
+            .forEach(c => fetchCardData(c.id));
+    }
+
+    // ── Modals ───────────────────────────────────────────────────────────────
+    function openModalById(id)  { document.getElementById(id).classList.add('open'); }
+    function closeModalById(id) { document.getElementById(id).classList.remove('open'); }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+    });
+
+    // ── New Campaign ─────────────────────────────────────────────────────────
+    function openNewCampaignModal() {
+        ['nc_ticker','nc_strike','nc_premium','nc_expiration'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('nc_contracts').value = '1';
+        document.getElementById('nc_dateOpened').value = todayISO();
+        document.getElementById('nc_priceHint').textContent = '';
+        document.getElementById('nc_status').textContent = '';
+        openModalById('newCampaignModal');
+        setTimeout(() => document.getElementById('nc_ticker').focus(), 50);
+    }
+
+    document.getElementById('nc_ticker').addEventListener('blur', async function () {
+        const sym = this.value.trim().toUpperCase();
+        if (!sym) return;
+        const hint = document.getElementById('nc_priceHint');
+        hint.textContent = 'Fetching price…';
+        hint.className = 'hint';
+        try {
+            const resp = await fetch(`/api/yahoo/options/${sym}`, { signal: AbortSignal.timeout(12000) });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            const price = data?.optionChain?.result?.[0]?.quote?.regularMarketPrice;
+            hint.textContent = price ? `Current price: $${price.toFixed(2)}` : 'Price unavailable — enter strike manually';
+        } catch {
+            hint.textContent = 'Could not fetch price — enter manually';
+        }
+    });
+
+    function createCampaign() {
+        const ticker    = document.getElementById('nc_ticker').value.trim().toUpperCase();
+        const strike    = parseFloat(document.getElementById('nc_strike').value);
+        const premium   = parseFloat(document.getElementById('nc_premium').value);
+        const contracts = parseInt(document.getElementById('nc_contracts').value, 10) || 1;
+        const expiry    = document.getElementById('nc_expiration').value;
+        const opened    = document.getElementById('nc_dateOpened').value;
+        const st        = document.getElementById('nc_status');
+
+        if (!ticker)              { st.textContent = 'Enter a ticker symbol.';     st.className = 'status-msg error'; return; }
+        if (!strike || strike<=0) { st.textContent = 'Enter a valid strike price.'; st.className = 'status-msg error'; return; }
+        if (isNaN(premium)||premium<0) { st.textContent = 'Enter a valid premium.'; st.className = 'status-msg error'; return; }
+        if (!expiry)              { st.textContent = 'Enter an expiration date.';   st.className = 'status-msg error'; return; }
+        if (!opened)              { st.textContent = 'Enter the date opened.';      st.className = 'status-msg error'; return; }
+
+        const campaigns = loadCampaigns();
+        const newC = {
+            id: uid(), ticker, status: 'CSP_OPEN',
+            contracts, shares: 0,
+            dateStarted: opened, dateClosed: null,
+            entries: [{ id: uid(), type: 'CSP', action: 'OPEN', strike, premium, contracts, dateOpened: opened, dateClosed: null, expiration: expiry }],
+        };
+        campaigns.unshift(newC);
+        saveCampaigns(campaigns);
+        closeModalById('newCampaignModal');
+        expandedId = newC.id;
+        render();
+        fetchCardData(newC.id);
+    }
+
+    // ── Action Modal ─────────────────────────────────────────────────────────
+    let _actionId   = null;
+    let _actionType = null;
+
+    const ACTION_TITLES = {
+        CSP_CLOSE:   '&#x1F4B8; Close CSP for Profit',
+        CSP_ROLL:    '&#x1F501; Roll CSP',
+        ASSIGNED:    '&#x1F3C6; Mark as Assigned',
+        SELL_CC:     '&#x1F4C8; Sell Covered Call',
+        CC_CLOSE:    '&#x1F4B8; Close Covered Call',
+        CC_ROLL:     '&#x1F501; Roll Covered Call',
+        CALLED_AWAY: '&#x2705; Mark as Called Away',
+    };
+
+    function openAction(campaignId, actionType) {
+        _actionId   = campaignId;
+        _actionType = actionType;
+        document.getElementById('actionModalTitle').innerHTML = ACTION_TITLES[actionType] || 'Log Trade';
+        document.getElementById('am_status').textContent = '';
+        document.getElementById('actionModalBody').innerHTML = buildActionForm(actionType);
+        openModalById('actionModal');
+    }
+
+    function buildActionForm(t) {
+        const today = todayISO();
+        if (t === 'CSP_CLOSE') return `
+            <div class="info-banner" style="margin-bottom:1rem">CSP closed or expired worthless. Enter any closing debit paid; 0 if expired.</div>
+            <div class="input-row">
+                <div class="field"><label>Closing Debit / Share</label><input type="number" id="af_debit" value="0" min="0" step="0.01"></div>
+                <div class="field"><label>Date Closed</label><input type="date" id="af_date" value="${today}"></div>
+            </div>`;
+
+        if (t === 'CSP_ROLL') return `
+            <div class="info-banner" style="margin-bottom:1rem">Enter the net credit for the roll (new premium minus closing debit).</div>
+            <div class="input-row">
+                <div class="field"><label>New Strike</label><input type="number" id="af_strike" placeholder="445" step="0.5"></div>
+                <div class="field"><label>Net Credit / Share</label><input type="number" id="af_premium" placeholder="1.20" step="0.01"></div>
+            </div>
+            <div class="input-row">
+                <div class="field"><label>New Expiration</label><input type="date" id="af_expiry"></div>
+                <div class="field"><label>Date Rolled</label><input type="date" id="af_date" value="${today}"></div>
+            </div>`;
+
+        if (t === 'ASSIGNED') return `
+            <div class="info-banner" style="margin-bottom:1rem">You were assigned shares at the strike price. This sets your cost basis.</div>
+            <div class="input-row">
+                <div class="field"><label>Assignment Strike</label><input type="number" id="af_strike" placeholder="450" step="0.5"></div>
+                <div class="field"><label>Contracts Assigned</label><input type="number" id="af_contracts" value="1" min="1" step="1"></div>
+            </div>
+            <div class="field"><label>Date Assigned</label><input type="date" id="af_date" value="${today}"></div>`;
+
+        if (t === 'SELL_CC') return `
+            <div class="input-row">
+                <div class="field"><label>CC Strike</label><input type="number" id="af_strike" placeholder="460" step="0.5"></div>
+                <div class="field"><label>Premium / Share</label><input type="number" id="af_premium" placeholder="2.00" step="0.01"></div>
+            </div>
+            <div class="input-row">
+                <div class="field"><label>Contracts</label><input type="number" id="af_contracts" value="1" min="1" step="1"></div>
+                <div class="field"><label>Expiration</label><input type="date" id="af_expiry"></div>
+            </div>
+            <div class="field"><label>Date Opened</label><input type="date" id="af_date" value="${today}"></div>`;
+
+        if (t === 'CC_CLOSE') return `
+            <div class="info-banner" style="margin-bottom:1rem">CC closed early. Enter closing debit paid; 0 if expired worthless.</div>
+            <div class="input-row">
+                <div class="field"><label>Closing Debit / Share</label><input type="number" id="af_debit" value="0" min="0" step="0.01"></div>
+                <div class="field"><label>Date Closed</label><input type="date" id="af_date" value="${today}"></div>
+            </div>`;
+
+        if (t === 'CC_ROLL') return `
+            <div class="info-banner" style="margin-bottom:1rem">Enter the net credit for the roll (new premium minus closing debit).</div>
+            <div class="input-row">
+                <div class="field"><label>New Strike</label><input type="number" id="af_strike" placeholder="465" step="0.5"></div>
+                <div class="field"><label>Net Credit / Share</label><input type="number" id="af_premium" placeholder="0.80" step="0.01"></div>
+            </div>
+            <div class="input-row">
+                <div class="field"><label>New Expiration</label><input type="date" id="af_expiry"></div>
+                <div class="field"><label>Date Rolled</label><input type="date" id="af_date" value="${today}"></div>
+            </div>`;
+
+        if (t === 'CALLED_AWAY') return `
+            <div class="info-banner" style="margin-bottom:1rem">Shares sold at the call strike. Premium from this CC is already tracked.</div>
+            <div class="input-row">
+                <div class="field"><label>Call Strike (sale price)</label><input type="number" id="af_strike" placeholder="460" step="0.5"></div>
+                <div class="field"><label>Date Called Away</label><input type="date" id="af_date" value="${today}"></div>
+            </div>`;
+
+        return '';
+    }
+
+    function getEl(id) { const el = document.getElementById(id); return el ? el.value : null; }
+    function getN(id)  { return parseFloat(getEl(id)); }
+    function getI(id)  { return parseInt(getEl(id), 10); }
+
+    function submitAction() {
+        const campaigns = loadCampaigns();
+        const c = campaigns.find(x => x.id === _actionId);
+        if (!c) return;
+        const st = document.getElementById('am_status');
+        const t  = _actionType;
+
+        const err = msg => { st.textContent = msg; st.className = 'status-msg error'; };
+
+        if (t === 'CSP_CLOSE') {
+            const debit = isNaN(getN('af_debit')) ? 0 : getN('af_debit');
+            const date  = getEl('af_date');
+            if (!date) return err('Enter close date.');
+            const openCSP = [...c.entries].reverse().find(e => e.type === 'CSP' && e.action === 'OPEN');
+            if (openCSP && !openCSP.dateClosed) openCSP.dateClosed = date;
+            if (debit > 0) c.entries.push({ id: uid(), type: 'CSP', action: 'CLOSE', strike: openCSP?.strike || 0, premium: debit, contracts: c.contracts, dateOpened: date, dateClosed: date, expiration: openCSP?.expiration || '' });
+            c.status = 'CLOSED'; c.dateClosed = date;
+        }
+        else if (t === 'CSP_ROLL') {
+            const strike  = getN('af_strike');
+            const premium = getN('af_premium');
+            const expiry  = getEl('af_expiry');
+            const date    = getEl('af_date');
+            if (!strike || isNaN(premium) || !expiry || !date) return err('Fill all fields.');
+            c.entries.push({ id: uid(), type: 'CSP', action: 'ROLL', strike, premium, contracts: c.contracts, dateOpened: date, dateClosed: null, expiration: expiry });
+            c.status = 'CSP_OPEN';
+        }
+        else if (t === 'ASSIGNED') {
+            const strike    = getN('af_strike');
+            const contracts = getI('af_contracts') || c.contracts;
+            const date      = getEl('af_date');
+            if (!strike || !date) return err('Fill all fields.');
+            c.entries.push({ id: uid(), type: 'CSP', action: 'ASSIGNED', strike, premium: 0, contracts, dateOpened: date, dateClosed: date, expiration: date });
+            c.status = 'ASSIGNED'; c.shares = contracts * 100; c.contracts = contracts;
+        }
+        else if (t === 'SELL_CC') {
+            const strike    = getN('af_strike');
+            const premium   = getN('af_premium');
+            const contracts = getI('af_contracts') || c.contracts;
+            const expiry    = getEl('af_expiry');
+            const date      = getEl('af_date');
+            if (!strike || isNaN(premium) || !expiry || !date) return err('Fill all fields.');
+            c.entries.push({ id: uid(), type: 'CC', action: 'OPEN', strike, premium, contracts, dateOpened: date, dateClosed: null, expiration: expiry });
+            c.status = 'CC_OPEN';
+        }
+        else if (t === 'CC_CLOSE') {
+            const debit = isNaN(getN('af_debit')) ? 0 : getN('af_debit');
+            const date  = getEl('af_date');
+            if (!date) return err('Enter close date.');
+            const openCC = [...c.entries].reverse().find(e => e.type === 'CC' && e.action === 'OPEN');
+            if (openCC && !openCC.dateClosed) openCC.dateClosed = date;
+            if (debit > 0) c.entries.push({ id: uid(), type: 'CC', action: 'CLOSE', strike: openCC?.strike || 0, premium: debit, contracts: c.contracts, dateOpened: date, dateClosed: date, expiration: openCC?.expiration || '' });
+            c.status = 'ASSIGNED';
+        }
+        else if (t === 'CC_ROLL') {
+            const strike  = getN('af_strike');
+            const premium = getN('af_premium');
+            const expiry  = getEl('af_expiry');
+            const date    = getEl('af_date');
+            if (!strike || isNaN(premium) || !expiry || !date) return err('Fill all fields.');
+            c.entries.push({ id: uid(), type: 'CC', action: 'ROLL', strike, premium, contracts: c.contracts, dateOpened: date, dateClosed: null, expiration: expiry });
+            c.status = 'CC_OPEN';
+        }
+        else if (t === 'CALLED_AWAY') {
+            const strike = getN('af_strike');
+            const date   = getEl('af_date');
+            if (!strike || !date) return err('Fill all fields.');
+            c.entries.push({ id: uid(), type: 'CC', action: 'CALLED_AWAY', strike, premium: 0, contracts: c.contracts, dateOpened: date, dateClosed: date, expiration: date });
+            c.status = 'CALLED_AWAY'; c.shares = 0; c.dateClosed = date;
+        }
+
+        saveCampaigns(campaigns);
+        closeModalById('actionModal');
+        // Clear stale live data so the refreshed state is re-fetched
+        delete _liveData[_actionId];
+        render();
+        fetchCardData(_actionId);
+    }
+
+    // ── Archive ───────────────────────────────────────────────────────────────
+    let _archiveId = null;
+
+    function openArchive(id) {
+        _archiveId = id;
+        document.getElementById('arch_dateClosed').value = todayISO();
+        document.getElementById('arch_debit').value = '0';
+        document.getElementById('arch_status').textContent = '';
+        openModalById('archiveModal');
+    }
+
+    function submitArchive() {
+        const campaigns = loadCampaigns();
+        const c = campaigns.find(x => x.id === _archiveId);
+        if (!c) return;
+        const date  = document.getElementById('arch_dateClosed').value;
+        const debit = parseFloat(document.getElementById('arch_debit').value) || 0;
+        if (!date) { const s = document.getElementById('arch_status'); s.textContent = 'Enter close date.'; s.className = 'status-msg error'; return; }
+        if (debit > 0) {
+            const isCCPhase = c.status === 'CC_OPEN' || c.status === 'ASSIGNED';
+            c.entries.push({ id: uid(), type: isCCPhase ? 'CC' : 'CSP', action: 'CLOSE', strike: 0, premium: debit, contracts: c.contracts, dateOpened: date, dateClosed: date, expiration: '' });
+        }
+        c.status = 'CLOSED'; c.dateClosed = date;
+        saveCampaigns(campaigns);
+        closeModalById('archiveModal');
+        render();
+    }
+
+    // ── Delete ────────────────────────────────────────────────────────────────
+    function deleteCampaign(id) {
+        if (!confirm('Delete this campaign? This cannot be undone.')) return;
+        const campaigns = loadCampaigns().filter(c => c.id !== id);
+        if (expandedId === id) expandedId = null;
+        saveCampaigns(campaigns);
+        render();
+    }
+
+    // ── Export ────────────────────────────────────────────────────────────────
+    function exportData() {
+        const blob = new Blob([localStorage.getItem(STORAGE_KEY) || '[]'], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `wheel-campaigns-${todayISO()}.json`;
+        a.click();
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    render();
+    fetchAllCardData();
+    </script>
+</body>
+</html>
