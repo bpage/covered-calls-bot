@@ -4,279 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IV Hunter — Options Income Tools</title>
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #0d1117;
-            color: #e6edf3;
-            min-height: 100vh;
-            line-height: 1.5;
-        }
-        nav.top-nav {
-            background: #0d1117;
-            border-bottom: 1px solid #21262d;
-            padding: 0.5rem 2rem;
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-        }
-        nav.top-nav a {
-            color: #8b949e;
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.3rem 0;
-            border-bottom: 2px solid transparent;
-            transition: color 0.15s, border-color 0.15s;
-        }
-        nav.top-nav a:hover { color: #e6edf3; }
-        nav.top-nav a.active {
-            color: #58a6ff;
-            border-bottom-color: #58a6ff;
-        }
-        nav.top-nav .nav-home {
-            color: #58a6ff;
-            font-size: 0.9rem;
-            margin-right: 0.5rem;
-        }
-        header {
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
-            padding: 1rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        header h1 {
-            font-size: 1.4rem;
-            color: #58a6ff;
-        }
-        header h1 span { color: #8b949e; font-weight: 400; }
-        .container {
-            max-width: 1060px;
-            margin: 0 auto;
-            padding: 1.5rem 1rem;
-        }
-        .info-banner {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 0.8rem 1rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.85rem;
-            color: #8b949e;
-        }
-        .controls {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 1.2rem;
-            margin-bottom: 1.5rem;
-        }
-        .controls label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-            color: #c9d1d9;
-        }
-        .controls .hint {
-            font-size: 0.8rem;
-            color: #8b949e;
-            margin-bottom: 0.6rem;
-        }
-        .controls-row {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .controls-row .input-group { flex: 1; min-width: 250px; }
-        input[type="text"] {
-            width: 100%;
-            padding: 0.6rem 0.8rem;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            color: #e6edf3;
-            font-size: 1rem;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #58a6ff;
-        }
-        .btn {
-            padding: 0.6rem 1.2rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .btn-primary {
-            background: #238636;
-            color: #fff;
-        }
-        .btn-primary:hover { background: #2ea043; }
-        .btn-primary:disabled, .btn-secondary:disabled {
-            background: #21262d;
-            color: #484f58;
-            cursor: not-allowed;
-        }
-        .btn-secondary {
-            background: #30363d;
-            color: #e6edf3;
-        }
-        .btn-secondary:hover { background: #3d444d; }
-        .status-msg {
-            font-size: 0.85rem;
-            margin-top: 0.6rem;
-        }
-        .status-msg.success { color: #3fb950; }
-        .status-msg.error { color: #f85149; }
-        .status-msg.loading { color: #58a6ff; }
-        h2 {
-            font-size: 1.1rem;
-            margin-bottom: 0.8rem;
-            color: #c9d1d9;
-        }
-        .fetch-bar {
-            display: flex;
-            gap: 0.8rem;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        .table-wrap {
-            overflow-x: auto;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        thead th {
-            background: #1c2128;
-            padding: 0.65rem 0.8rem;
-            text-align: left;
-            color: #8b949e;
-            font-weight: 600;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            white-space: nowrap;
-            border-bottom: 1px solid #30363d;
-            cursor: pointer;
-            user-select: none;
-        }
-        thead th:hover { color: #e6edf3; }
-        thead th.sorted { color: #58a6ff; }
-        tbody tr {
-            transition: background 0.15s;
-        }
-        tbody tr:hover { background: #1c2128; }
-        tbody td {
-            padding: 0.6rem 0.8rem;
-            border-bottom: 1px solid #21262d;
-            white-space: nowrap;
-        }
-        .iv-cell { color: #f0883e; font-weight: 700; font-size: 1rem; }
-        .yield-cell { color: #3fb950; font-weight: 600; }
-        .premium-cell { color: #3fb950; font-weight: 600; }
-        .ticker-cell {
-            font-weight: 700;
-            color: #58a6ff;
-        }
-        .ticker-cell a {
-            color: #58a6ff;
-            text-decoration: none;
-        }
-        .ticker-cell a:hover { text-decoration: underline; }
-        .rank-cell {
-            color: #8b949e;
-            font-weight: 600;
-            text-align: center;
-        }
-        .iv-bar {
-            display: inline-block;
-            height: 6px;
-            border-radius: 3px;
-            background: #f0883e;
-            margin-left: 0.5rem;
-            vertical-align: middle;
-        }
-        .disclaimer {
-            font-size: 0.75rem;
-            color: #484f58;
-            margin-top: 1.5rem;
-            text-align: center;
-            line-height: 1.6;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #21262d;
-            border-radius: 2px;
-            margin-bottom: 1rem;
-            overflow: hidden;
-        }
-        .progress-bar.hidden { display: none; }
-        .progress-fill {
-            height: 100%;
-            background: #58a6ff;
-            border-radius: 2px;
-            transition: width 0.3s;
-            width: 0%;
-        }
-        @media (max-width: 600px) {
-            header { padding: 0.8rem 1rem; }
-            nav.top-nav { padding: 0.5rem 1rem; gap: 1rem; }
-        }
-        .col-tip { position: relative; display: inline-flex; align-items: center; gap: 4px; }
-        .col-tip .tip-icon { font-size: 0.7em; color: #8b949e; cursor: help; user-select: none; }
-        .col-tip .tip-body {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #c9d1d9;
-            font-size: 0.78rem;
-            font-weight: 400;
-            line-height: 1.5;
-            white-space: pre-line;
-            padding: 8px 10px;
-            border-radius: 6px;
-            width: 260px;
-            z-index: 100;
-            pointer-events: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-        .col-tip:hover .tip-body { display: block; }
-    </style>
+    <script>(function(){ document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); })();
+    function toggleTheme() { var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <nav class="top-nav">
-        <a href="/" class="nav-home">Options Income</a>
-        <a href="/covered-calls">Covered Calls</a>
-        <a href="/cash-secured-puts">Cash-Secured Puts</a>
-        <a href="/iv-hunter" class="active">IV Hunter</a>
-        <a href="/wheel-tracker">Wheel Tracker</a>
+        <a href="/" class="nav-brand"><span class="brand-name">optionsincome</span><span class="brand-dot">.pro</span></a>
+        <div class="nav-links">
+            <a href="/covered-calls">Covered Calls</a>
+            <a href="/cash-secured-puts">Cash-Secured Puts</a>
+            <a href="/iv-hunter" class="active">IV Hunter</a>
+            <a href="/wheel-tracker">Wheel Tracker</a>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+            <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
     </nav>
     <header>
         <h1>IV Hunter <span>— Find High Premium Puts</span></h1>
     </header>
 
-    <div class="container">
+    <div class="container wide">
         <div class="status-msg" id="statusMsg"></div>
 
         <div class="info-banner">
