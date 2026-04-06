@@ -69,7 +69,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── Base ── */
-html { font-size: 16px; }
+html {
+  font-size: 16px;
+  overflow-x: hidden; /* prevent horizontal scroll from overflow at page level */
+}
 
 body {
   font-family: var(--font-sans);
@@ -77,6 +80,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 h1, h2, h3 {
@@ -409,10 +413,12 @@ select { background-image: none; }
 /* ── Tables ── */
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   margin-bottom: 1.5rem;
+  position: relative;
 }
 table {
   width: 100%;
@@ -1003,17 +1009,183 @@ tbody td {
 .live-pl.loss   { color: var(--accent-red); }
 .live-close-cost { color: var(--text-secondary); font-size: 0.78rem; }
 
-/* ── Media queries ── */
+/* ─────────────────────────────────────────────
+   Mobile Responsive — 768px and below
+───────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .nav-links a { padding: 0 0.6rem; font-size: 0.8rem; }
-}
-@media (max-width: 600px) {
-  nav.top-nav { padding: 0 1rem; }
+
+  /* ── Nav: horizontal scroll, always-visible brand ── */
+  nav.top-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;        /* Firefox */
+    padding: 0 12px;
+    /* allow content to be wider than viewport */
+    width: 100%;
+  }
+  nav.top-nav::-webkit-scrollbar { display: none; }
+
+  /* Brand never shrinks — always anchored at left */
+  .nav-brand {
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+  }
+
+  /* Links stay in a single scrollable row */
+  .nav-links {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+  .nav-links a {
+    /* 44px tap target height */
+    min-height: 44px;
+    height: 44px;
+    padding: 0 10px;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+  }
+
+  /* Theme toggle: fixed so it's always reachable even when nav scrolls */
+  .theme-toggle {
+    position: fixed;
+    top: 8px;
+    right: 12px;
+    z-index: 110;
+    background: var(--bg-card);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+  }
+
+  /* ── Container spacing ── */
+  .container {
+    padding: 1rem;
+  }
+
+  /* ── Headers ── */
   header { padding: 0.9rem 1rem; }
-  header.header-home { padding: 2rem 1rem; }
-  .proj-grid { grid-template-columns: 1fr 1fr; }
-  .tools-grid { grid-template-columns: 1fr; }
-  .campaigns-grid { grid-template-columns: 1fr; }
-  .summary-bar { gap: 1rem; }
-  .input-row { flex-direction: column; gap: 0.5rem; }
+  header.header-home { padding: 1.75rem 1rem; }
+  header h1 { font-size: 1.15rem; }
+  header.header-home h1 { font-size: 1.4rem; }
+  h2 { font-size: 0.95rem; }
+
+  /* ── Forms: stack vertically, full width ── */
+  .input-section, .controls {
+    padding: 1rem;
+  }
+  .input-row,
+  .controls-row {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .input-group {
+    min-width: 100% !important; /* override inline style="flex:0.6; min-width:120px" */
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+  .controls-row .input-group {
+    min-width: 100% !important;
+  }
+
+  /* Labels always above, left-aligned */
+  .input-section label,
+  .controls label,
+  .field label {
+    text-align: left;
+  }
+
+  /* ── Inputs: 16px font prevents iOS zoom on focus; 44px min touch target ── */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  select {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  /* Buttons in fetch/controls rows go full-width or auto */
+  .fetch-bar {
+    flex-wrap: wrap;
+  }
+  .fetch-bar .btn { flex: 1 1 auto; justify-content: center; }
+
+  /* ── Quick-pick ticker buttons ── */
+  .quick-tickers {
+    gap: 8px;
+  }
+  .ticker-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+
+  /* ── Tables: fixed min-width forces horizontal scroll, shadow hints at right ── */
+  table {
+    min-width: 600px;
+  }
+  /* Right-edge shadow signals "more to scroll" */
+  .table-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.18));
+    pointer-events: none;
+  }
+  [data-theme="light"] .table-wrap::after {
+    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.07));
+  }
+
+  /* ── Cards: single column ── */
+  .tools-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .campaigns-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Summary bar: 2-per-row on mobile ── */
+  .summary-bar {
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+  }
+  .summary-bar .summary-item {
+    flex: 0 1 calc(50% - 0.5rem);
+    min-width: 0;
+  }
+
+  /* ── Projection grid: 2 columns ── */
+  .proj-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  /* ── Modal: full-width on mobile ── */
+  .modal {
+    padding: 1.2rem;
+    border-radius: var(--radius-lg);
+  }
+  .modal .input-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .modal .field { min-width: 100%; }
+
+  /* ── Empty state: smaller padding ── */
+  .empty-state { padding: 2.5rem 1.25rem; }
+
+  /* ── Campaign card actions: wrap tightly ── */
+  .campaign-actions { gap: 0.3rem; }
+}
+
+/* ── 480px and below (small phones) ── */
+@media (max-width: 480px) {
+  header.header-home h1 { font-size: 1.25rem; }
+  .proj-card .amount { font-size: 1.25rem; }
+  .summary-bar .summary-item .value { font-size: 0.95rem; }
+  .tool-card { padding: 1.25rem; }
 }
