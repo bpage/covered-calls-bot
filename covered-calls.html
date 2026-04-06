@@ -375,7 +375,7 @@
 
         function updateBadge() {
             if (isLiveData) {
-                const label = dataSource === "alpaca" ? "LIVE — ALPACA" : "LIVE — YAHOO FINANCE";
+                const label = dataSource === "alpaca" ? "LIVE" : "LIVE — YAHOO FINANCE";
                 dataBadge.textContent = label;
                 dataBadge.className = "data-source-badge badge-live";
             } else {
@@ -489,7 +489,7 @@
                     updateBadge();
                     renderTable();
                     updateProjections();
-                    const srcLabel = dataSource === "alpaca" ? "Alpaca" : "Yahoo Finance";
+                    const srcLabel = dataSource === "alpaca" ? "live data" : "Yahoo Finance";
                     if (chainWarning) {
                         setStatus("Loaded " + allOptions.length + " " + symbol + " options from " + srcLabel + ". ⚠ " + chainWarning, "error");
                     } else {
