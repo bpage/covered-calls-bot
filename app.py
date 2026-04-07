@@ -8,11 +8,32 @@ import requests
 import yfinance as yf
 import concurrent.futures
 from cachetools import TTLCache
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per minute"],
+    storage_uri="memory://",
+)
+
+@app.errorhandler(429)
+def ratelimit_error(e):
+    retry_after = getattr(e, "retry_after", None)
+    if retry_after:
+        seconds = int(retry_after.total_seconds()) if hasattr(retry_after, "total_seconds") else int(retry_after)
+        wait = f"{seconds}s" if seconds < 60 else f"{seconds // 60}m {seconds % 60}s"
+        message = f"Too many requests — try again in {wait}."
+    else:
+        message = "Too many requests — slow down and try again in a moment."
+    return jsonify({"error": "rate_limited", "message": message}), 429
 
 # TTL cache for options chain — prevents hammering Alpaca on every keystroke
 _options_cache = TTLCache(maxsize=50, ttl=120)
@@ -317,6 +338,7 @@ HIGH_IV_WATCHLIST = [
 
 
 @app.route("/api/active-tickers")
+@limiter.limit("6 per minute")
 def api_active_tickers():
     """Get most active stock tickers from Alpaca screener, merged with high-IV watchlist."""
     if not ALPACA_API_KEY:
@@ -612,6 +634,7 @@ def _iv_scan_one(symbol, exp_gte, exp_lte, now):
 
 
 @app.route("/api/iv-scan")
+@limiter.limit("10 per minute")
 def api_iv_scan():
     """Scan multiple tickers for 30-day ATM implied volatility."""
     tickers_param = request.args.get("tickers", "")
@@ -638,6 +661,7 @@ def api_iv_scan():
 
 
 @app.route("/api/yahoo/options/<symbol>")
+@limiter.limit("30 per minute")
 def api_yahoo_options(symbol):
     """Fetch stock price + options data. Uses Alpaca (primary) or Yahoo (fallback)."""
     symbol = symbol.upper()
