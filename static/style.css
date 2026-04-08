@@ -579,6 +579,33 @@ tbody td {
 .summary-bar .summary-item .value.green { color: var(--accent-green); }
 .summary-bar .summary-item .value.blue  { color: var(--accent-blue); }
 
+/* ── Projection ticker header ── */
+.proj-ticker-header {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+  letter-spacing: 0.3px;
+}
+.proj-ticker-symbol {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.proj-ticker-sep {
+  color: var(--text-secondary);
+  margin: 0 0.3em;
+}
+.proj-ticker-price {
+  color: var(--text-secondary);
+}
+.exp-date-badge {
+  font-size: 0.78em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 0.3em;
+}
+
 /* ── Projection cards ── */
 .projections {
   background: var(--bg-card);
