@@ -678,6 +678,7 @@ tbody td {
   transform: translateY(-1px);
 }
 .tool-card .icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+.tool-icon { color: var(--accent-green); display: block; margin-bottom: 0.75rem; }
 .tool-card h2 {
   font-size: 1.08rem;
   color: var(--text-primary);
